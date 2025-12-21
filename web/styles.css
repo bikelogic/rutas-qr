@@ -1,0 +1,255 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    min-height: 100vh;
+    color: #fff;
+    padding: 10px;
+}
+
+.container {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    color: #00d4ff;
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+.scanner-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto 20px;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+#interactive {
+    width: 100%;
+    height: 250px;
+    background: #000;
+}
+
+#interactive video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#interactive canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.scan-line {
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    right: 10%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #00ff88, transparent);
+    animation: scan 2s linear infinite;
+    box-shadow: 0 0 10px #00ff88;
+}
+
+@keyframes scan {
+    0%, 100% { opacity: 0.3; transform: translateY(-30px); }
+    50% { opacity: 1; transform: translateY(30px); }
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+button {
+    padding: 12px 25px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#startBtn {
+    background: linear-gradient(135deg, #00d4ff, #0099cc);
+    color: #fff;
+}
+
+#startBtn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+}
+
+#stopBtn {
+    background: linear-gradient(135deg, #ff4757, #cc0022);
+    color: #fff;
+}
+
+#stopBtn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(255, 71, 87, 0.4);
+}
+
+#stopBtn:disabled, #startBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.result-box {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 15px;
+}
+
+.result-box h3 {
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.result-box .value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #00ff88;
+    word-break: break-all;
+}
+
+.result-box .value.searching {
+    color: #ffcc00;
+}
+
+.result-box .value.not-found {
+    color: #ff4757;
+}
+
+.result-box .value.found {
+    color: #00ff88;
+}
+
+.position-info {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.position-item {
+    flex: 1;
+    min-width: 120px;
+    background: rgba(0, 212, 255, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+}
+
+.position-item .label {
+    font-size: 0.8rem;
+    color: #00d4ff;
+    margin-bottom: 5px;
+}
+
+.position-item .number {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.history {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.history h3 {
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.history-item .code {
+    font-weight: 600;
+    color: #00d4ff;
+}
+
+.history-item .pos {
+    color: #00ff88;
+}
+
+.status {
+    text-align: center;
+    padding: 10px;
+    font-size: 0.9rem;
+    color: #888;
+}
+
+.status.loading {
+    color: #ffcc00;
+}
+
+.status.error {
+    color: #ff4757;
+}
+
+.status.success {
+    color: #00ff88;
+}
+
+.cell-content {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+.refresh-btn {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    color: #fff;
+    font-size: 0.85rem;
+    padding: 8px 15px;
+}
+
+.last-update {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: center;
+    margin-top: 10px;
+}
