@@ -114,10 +114,10 @@ def geocode_with_google_maps(address, google_maps_api_key=GOOGLE_MAPS_API_KEY):
     return None
 
 
-def geocode_and_store(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, delay=0.3, use_cache=True, use_parallel=False, max_workers=5):
+def geocode_and_store(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, delay=0.3, use_cache=True, use_parallel=False, max_workers=5, codigos_barras=None):
     """
     Geocodifica una lista de direcciones eliminando duplicados (mismas coordenadas).
-    Solo mantiene la primera dirección por cada coordenada única.
+    Solo mantiene la primera dirección por cada coordenada única, pero agrupa todos los códigos de barras.
     
     Args:
         addresses (list): Lista de direcciones a geocodificar
@@ -126,14 +126,31 @@ def geocode_and_store(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, delay=
         use_cache (bool): Si True, usa caché persistente
         use_parallel (bool): Si True, usa procesamiento paralelo
         max_workers (int): Número máximo de hilos paralelos
+        codigos_barras (list): Lista de códigos de barras asociados a cada dirección
         
     Returns:
         tuple: (geocoded_addresses, not_found_addresses)
-            - geocoded_addresses: Lista única por coordenada [(coords, address), ...]
+            - geocoded_addresses: Lista única por coordenada [(coords, address, codigos_barras), ...]
             - not_found_addresses: Lista de direcciones no encontradas
     """
-    geocoded_addresses_dict = {}
+    geocoded_addresses_dict = {}  # {coords: {'address': str, 'codigos': list}}
     not_found_addresses = []
+    
+    # Si no hay códigos de barras, crear lista vacía
+    if codigos_barras is None:
+        codigos_barras = [''] * len(addresses)
+    
+    # Asegurar que las listas tengan el mismo tamaño
+    while len(codigos_barras) < len(addresses):
+        codigos_barras.append('')
+    
+    # Crear mapeo dirección -> lista de códigos de barras (acumulando duplicados)
+    address_to_codigos = {}
+    for addr, cod in zip(addresses, codigos_barras):
+        if addr not in address_to_codigos:
+            address_to_codigos[addr] = []
+        if cod:  # Solo agregar si el código no está vacío
+            address_to_codigos[addr].append(cod)
     
     # Cargar caché si está habilitado
     cache = load_cache() if use_cache else {}
@@ -144,13 +161,17 @@ def geocode_and_store(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, delay=
     addresses_to_geocode = []
     for address in addresses:
         cached_coords = get_from_cache(address, cache) if use_cache else None
+        codigos_list = address_to_codigos.get(address, [])
         
         if cached_coords:
             # Usar coordenadas del caché
             cache_hits += 1
             if cached_coords not in geocoded_addresses_dict:
-                geocoded_addresses_dict[cached_coords] = []
-            geocoded_addresses_dict[cached_coords].append(address)
+                geocoded_addresses_dict[cached_coords] = {'address': address, 'codigos': []}
+            # Agregar todos los códigos de barras de esta dirección
+            for codigo in codigos_list:
+                if codigo and codigo not in geocoded_addresses_dict[cached_coords]['codigos']:
+                    geocoded_addresses_dict[cached_coords]['codigos'].append(codigo)
         else:
             cache_misses += 1
             addresses_to_geocode.append(address)
@@ -169,7 +190,8 @@ def geocode_and_store(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, delay=
                 cache,
                 google_maps_api_key,
                 max_workers,
-                delay
+                delay,
+                address_to_codigos
             )
         else:
             # Geocodificación secuencial
@@ -179,7 +201,8 @@ def geocode_and_store(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, delay=
                 not_found_addresses,
                 cache,
                 google_maps_api_key,
-                delay
+                delay,
+                address_to_codigos
             )
     
     # Guardar caché actualizado
@@ -187,24 +210,22 @@ def geocode_and_store(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, delay=
         save_cache(cache)
     
     # Detectar y reportar duplicados
-    total_direcciones = sum(len(addrs) for addrs in geocoded_addresses_dict.values())
+    total_codigos = sum(len(data['codigos']) for data in geocoded_addresses_dict.values())
     puntos_unicos = len(geocoded_addresses_dict)
-    duplicados = total_direcciones - puntos_unicos
     
-    if duplicados > 0:
-        print(f"  📍 {duplicados} direcciones con coordenadas duplicadas (mismo punto de entrega)")
+    if total_codigos > puntos_unicos:
+        print(f"  📍 {total_codigos - puntos_unicos} direcciones con coordenadas duplicadas (mismo punto de entrega)")
     
-    # Convertir el diccionario a una lista de coordenadas con la primera dirección asociada
-    # Solo una dirección por coordenada (las demás ya están en caché)
+    # Convertir el diccionario a una lista de tuplas (coords, address, codigos_barras)
     geocoded_addresses = [
-        (coords, addresses[0]) 
-        for coords, addresses in geocoded_addresses_dict.items()
+        (coords, data['address'], data['codigos']) 
+        for coords, data in geocoded_addresses_dict.items()
     ]
     
     return geocoded_addresses, not_found_addresses
 
 
-def _geocode_sequential(addresses, geocoded_dict, not_found_list, cache, api_key, delay):
+def _geocode_sequential(addresses, geocoded_dict, not_found_list, cache, api_key, delay, address_to_codigos=None):
     """
     Geocodificación secuencial (una por una).
     
@@ -215,15 +236,23 @@ def _geocode_sequential(addresses, geocoded_dict, not_found_list, cache, api_key
         cache (dict): Caché
         api_key (str): API key
         delay (float): Delay entre llamadas
+        address_to_codigos (dict): Mapeo dirección -> lista de códigos de barras
     """
+    if address_to_codigos is None:
+        address_to_codigos = {}
+    
     for address in addresses:
         coords = geocode_with_google_maps(address, api_key)
+        codigos_list = address_to_codigos.get(address, [])
         
         if coords:
             # Agrupar direcciones con las mismas coordenadas
             if coords not in geocoded_dict:
-                geocoded_dict[coords] = []
-            geocoded_dict[coords].append(address)
+                geocoded_dict[coords] = {'address': address, 'codigos': []}
+            # Agregar todos los códigos de esta dirección
+            for codigo in codigos_list:
+                if codigo and codigo not in geocoded_dict[coords]['codigos']:
+                    geocoded_dict[coords]['codigos'].append(codigo)
             add_to_cache(address, coords, cache)
         else:
             not_found_list.append([address])
@@ -234,7 +263,7 @@ def _geocode_sequential(addresses, geocoded_dict, not_found_list, cache, api_key
             time.sleep(delay)
 
 
-def _geocode_parallel(addresses, geocoded_dict, not_found_list, cache, api_key, max_workers, delay):
+def _geocode_parallel(addresses, geocoded_dict, not_found_list, cache, api_key, max_workers, delay, address_to_codigos=None):
     """
     Geocodificación paralela usando ThreadPoolExecutor.
     
@@ -246,7 +275,11 @@ def _geocode_parallel(addresses, geocoded_dict, not_found_list, cache, api_key, 
         api_key (str): API key
         max_workers (int): Número de hilos
         delay (float): Delay entre lotes
+        address_to_codigos (dict): Mapeo dirección -> lista de códigos de barras
     """
+    if address_to_codigos is None:
+        address_to_codigos = {}
+    
     def geocode_single(address):
         """Geocodifica una dirección individual"""
         coords = geocode_with_google_maps(address, api_key)
@@ -262,12 +295,16 @@ def _geocode_parallel(addresses, geocoded_dict, not_found_list, cache, api_key, 
         # Procesar resultados a medida que se completan
         for i, future in enumerate(as_completed(future_to_address)):
             address, coords = future.result()
+            codigos_list = address_to_codigos.get(address, [])
             
             if coords:
                 with _cache_lock:
                     if coords not in geocoded_dict:
-                        geocoded_dict[coords] = []
-                    geocoded_dict[coords].append(address)
+                        geocoded_dict[coords] = {'address': address, 'codigos': []}
+                    # Agregar todos los códigos de esta dirección
+                    for codigo in codigos_list:
+                        if codigo and codigo not in geocoded_dict[coords]['codigos']:
+                            geocoded_dict[coords]['codigos'].append(codigo)
                 add_to_cache(address, coords, cache)
             else:
                 with _cache_lock:
@@ -279,7 +316,7 @@ def _geocode_parallel(addresses, geocoded_dict, not_found_list, cache, api_key, 
                 time.sleep(delay)
 
 
-def geocode_and_store_fast(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, max_workers=10):
+def geocode_and_store_fast(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, max_workers=10, codigos_barras=None):
     """
     Versión rápida de geocodificación con caché y paralelización habilitados.
     Recomendado para grandes volúmenes de direcciones.
@@ -288,10 +325,11 @@ def geocode_and_store_fast(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, m
         addresses (list): Lista de direcciones
         google_maps_api_key (str): API key de Google Maps
         max_workers (int): Número de hilos paralelos (default: 10)
+        codigos_barras (list): Lista de códigos de barras asociados a cada dirección
         
     Returns:
         tuple: (geocoded_addresses, not_found_addresses)
-            - geocoded_addresses: Lista única por coordenada [(coords, address), ...]
+            - geocoded_addresses: Lista única por coordenada [(coords, address, codigos_barras), ...]
             - not_found_addresses: Lista de direcciones no encontradas
     """
     return geocode_and_store(
@@ -300,7 +338,8 @@ def geocode_and_store_fast(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, m
         delay=0.1,  # Delay reducido con paralelo
         use_cache=True,
         use_parallel=True,
-        max_workers=max_workers
+        max_workers=max_workers,
+        codigos_barras=codigos_barras
     )
 
 

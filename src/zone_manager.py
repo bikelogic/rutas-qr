@@ -30,30 +30,40 @@ def separar_por_zonas(geocoded_addresses):
     Separa las direcciones geocodificadas por zonas.
     
     Args:
-        geocoded_addresses (list): Lista de tuplas [(coords, address), ...]
+        geocoded_addresses (list): Lista de tuplas [(coords, address, codigos_barras), ...]
         
     Returns:
         dict: Diccionario con las direcciones separadas por zona
             {
                 'Indust': [...],
                 'Centre': [...],
-                'MiraEst': [...],
-                'Mira': [...],
-                'sin_zona': [...]
+                'Altres': [...]
             }
     """
     zonas = {
         'Indust': [],
         'Centre': [],
-        'MiraEst': [],
-        'Mira': [],
-        'sin_zona': []
+        'Altres': []
     }
     
     for item in geocoded_addresses:
-        coords, address = item
+        # item puede ser (coords, address) o (coords, address, codigos_barras)
+        if len(item) >= 3:
+            coords, address, codigos_barras = item[0], item[1], item[2]
+        else:
+            coords, address = item[0], item[1]
+            codigos_barras = []
+        
         zona = determinar_zona(coords)
-        zonas[zona].append(item)
+        
+        # Mapear zonas antiguas a nuevas
+        if zona == 'Indust':
+            zonas['Indust'].append((coords, address, codigos_barras))
+        elif zona == 'Centre':
+            zonas['Centre'].append((coords, address, codigos_barras))
+        else:
+            # MiraEst, Mira, sin_zona -> Altres
+            zonas['Altres'].append((coords, address, codigos_barras))
     
     return zonas
 
@@ -70,7 +80,8 @@ def agregar_punto_inicio(zonas_dict, depot_coords=DEPOT_COORDS, depot_address=DE
     Returns:
         dict: Diccionario con el punto de inicio agregado a cada zona
     """
-    depot_item = (depot_coords, depot_address)
+    # El depósito no tiene códigos de barras
+    depot_item = (depot_coords, depot_address, [])
     
     for zona_name in zonas_dict:
         if zonas_dict[zona_name]:  # Solo si hay direcciones en la zona

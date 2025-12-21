@@ -70,23 +70,27 @@ class SheetsManager:
     
     def leer_direcciones_y_codigos(self):
         """
-        Lee direcciones y códigos postales del spreadsheet.
+        Lee direcciones, códigos postales y códigos de barras del spreadsheet.
         
         Returns:
-            tuple: (direcciones, codigos_postales)
+            tuple: (direcciones, codigos_postales, codigos_barras)
         """
         direcciones = self.leer_columna('Hoja 1!c2:c300')
         codigos_postales = self.leer_columna('Hoja 1!a2:a300')
+        codigos_barras = self.leer_columna('Hoja 1!d2:d300')
         
-        return direcciones, codigos_postales
+        return direcciones, codigos_postales, codigos_barras
     
     def escribir_resultados_por_zona(self, zonas_ordenadas, columnas_destino=None, excluir_inicio_fin=True):
         """
         Escribe los resultados ordenados en columnas por zona.
+        Ahora escribe direcciones y códigos de barras en columnas separadas.
         
         Args:
-            zonas_ordenadas (dict): Diccionario con direcciones ordenadas por zona
-            columnas_destino (dict): Diccionario {zona: columna} ej: {'Indust': 'i2'}
+            zonas_ordenadas (dict): Diccionario con datos ordenados por zona
+                                    Cada item es (coords, address, codigos_barras)
+            columnas_destino (dict): Diccionario {zona: (col_dir, col_codigos)} 
+                                     ej: {'Indust': ('i2', 'j2')}
                                      Si es None, usa las columnas por defecto
             excluir_inicio_fin (bool): Si True, excluye el primer y último punto (depósito)
                                        Si False, incluye todos los puntos
@@ -96,41 +100,59 @@ class SheetsManager:
         """
         if columnas_destino is None:
             columnas_destino = {
-                'Indust': 'i2',
-                'Centre': 'j2',
-                'MiraEst': 'k2',
-                'Mira': 'l2',
-                'sin_zona': 'm2'
+                'Indust': ('i2', 'j2'),
+                'Centre': ('k2', 'l2'),
+                'Altres': ('m2', 'n2')
             }
         
         resultados = {}
         
-        for zona_name, direcciones in zonas_ordenadas.items():
-            if zona_name in columnas_destino and direcciones:
+        for zona_name, items in zonas_ordenadas.items():
+            if zona_name in columnas_destino and items:
                 # Excluir primera y última dirección (depósito) solo si se solicita
                 if excluir_inicio_fin:
-                    if len(direcciones) > 2:
-                        datos_a_escribir = direcciones[1:-1]
+                    if len(items) > 2:
+                        datos_a_escribir = items[1:-1]
                     else:
                         datos_a_escribir = []
                 else:
-                    datos_a_escribir = direcciones
+                    datos_a_escribir = items
                 
                 if datos_a_escribir:
-                    columna = columnas_destino[zona_name]
-                    result = self.escribir_columna(columna, datos_a_escribir)
-                    resultados[zona_name] = result
-                    print(f"  ✓ Zona {zona_name}: {len(datos_a_escribir)} direcciones escritas en columna {columna}")
+                    col_dir, col_codigos = columnas_destino[zona_name]
+                    
+                    # Extraer direcciones y códigos de barras
+                    direcciones = []
+                    codigos = []
+                    for item in datos_a_escribir:
+                        # item puede ser (coords, address) o (coords, address, codigos_barras)
+                        if len(item) >= 3:
+                            coords, address, codigos_barras = item[0], item[1], item[2]
+                        else:
+                            coords, address = item[0], item[1]
+                            codigos_barras = []
+                        
+                        direcciones.append(address)
+                        # Unir múltiples códigos de barras con coma
+                        codigos.append(', '.join(str(c) for c in codigos_barras) if codigos_barras else '')
+                    
+                    # Escribir direcciones
+                    result_dir = self.escribir_columna(col_dir, direcciones)
+                    # Escribir códigos de barras
+                    result_cod = self.escribir_columna(col_codigos, codigos)
+                    
+                    resultados[zona_name] = {'direcciones': result_dir, 'codigos': result_cod}
+                    print(f"  ✓ Zona {zona_name}: {len(direcciones)} direcciones en {col_dir}, códigos en {col_codigos}")
         
         return resultados
     
-    def escribir_no_encontradas(self, not_found_addresses, rango='n2'):
+    def escribir_no_encontradas(self, not_found_addresses, rango='o2'):
         """
         Escribe las direcciones que no se pudieron geocodificar.
         
         Args:
             not_found_addresses (list): Lista de direcciones no encontradas
-            rango (str): Rango inicial donde escribir
+            rango (str): Rango inicial donde escribir (ahora columna O)
             
         Returns:
             dict: Resultado de la operación
@@ -152,7 +174,8 @@ class SheetsManager:
             columnas (list): Lista de rangos a limpiar ej: ['i2:i300', 'j2:j300']
         """
         if columnas is None:
-            columnas = ['i2:i300', 'j2:j300', 'k2:k300', 'l2:l300', 'm2:m300', 'n2:n300']
+            # Nuevas columnas: I-J (Indust), K-L (Centre), M-N (Altres), O (No encontradas)
+            columnas = ['i2:i300', 'j2:j300', 'k2:k300', 'l2:l300', 'm2:m300', 'n2:n300', 'o2:o300']
         
         for columna in columnas:
             self.sheet.values().clear(

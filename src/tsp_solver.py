@@ -55,16 +55,17 @@ def solve_tsp_problem(geocoded_addresses):
     Resuelve el problema del viajante de comercio para una lista de direcciones.
     
     Args:
-        geocoded_addresses (list): Lista de tuplas [(coords, address), ...]
+        geocoded_addresses (list): Lista de tuplas [(coords, address, codigos_barras), ...]
         
     Returns:
-        list: Lista de direcciones ordenadas según la ruta óptima
+        list: Lista de tuplas ordenadas según la ruta óptima [(coords, address, codigos_barras), ...]
     """
     if not geocoded_addresses:
         return []
     
     # Extraer solo las coordenadas para el problema TSP
-    coordinates = [coords for coords, address in geocoded_addresses]
+    # Manejar tuplas de 2 o 3 elementos
+    coordinates = [item[0] for item in geocoded_addresses]
     
     # Instanciar el modelo de datos
     data = create_data_model(coordinates)
@@ -97,19 +98,19 @@ def solve_tsp_problem(geocoded_addresses):
     # Solución del problema
     solution = routing.SolveWithParameters(search_parameters)
     
-    # Lista para guardar el orden de las direcciones
+    # Lista para guardar el orden de las direcciones (tuplas completas)
     ordered_addresses = []
     
     if solution:
         index = routing.Start(0)
         while not routing.IsEnd(index):
             node_index = manager.IndexToNode(index)
-            ordered_addresses.append(geocoded_addresses[node_index][1])
+            ordered_addresses.append(geocoded_addresses[node_index])
             index = solution.Value(routing.NextVar(index))
         
         # Añadir el punto de retorno al inicio para completar el ciclo
         final_index = manager.IndexToNode(index)
-        ordered_addresses.append(geocoded_addresses[final_index][1])
+        ordered_addresses.append(geocoded_addresses[final_index])
     
     return ordered_addresses
 

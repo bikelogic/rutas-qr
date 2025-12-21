@@ -126,48 +126,53 @@ def ordenar_por_linea(geocoded_addresses, linea_puntos):
     Ordena direcciones según su posición a lo largo de una línea de ruta.
     
     Args:
-        geocoded_addresses (list): Lista de tuplas [(coords, address), ...]
+        geocoded_addresses (list): Lista de tuplas [(coords, address, codigos_barras), ...]
         linea_puntos (list): Lista de puntos que definen la ruta
         
     Returns:
-        list: Lista de direcciones ordenadas
+        list: Lista de tuplas ordenadas [(coords, address, codigos_barras), ...]
     """
     if not geocoded_addresses:
         return []
     
     if len(linea_puntos) < 2:
         print(f"  ⚠️ Línea de ruta tiene menos de 2 puntos, retornando orden original")
-        return [address for _, address in geocoded_addresses]
+        return geocoded_addresses
     
     # Calcular posición de cada dirección a lo largo de la línea
     direcciones_con_posicion = []
     direcciones_problematicas = []
     
-    for coords, address in geocoded_addresses:
+    for item in geocoded_addresses:
+        # Manejar tuplas de 2 o 3 elementos
+        coords = item[0]
+        address = item[1]
+        codigos_barras = item[2] if len(item) >= 3 else []
+        
         try:
             posicion, distancia = calcular_posicion_en_ruta_multi_segmento(coords, linea_puntos)
             
             # Verificar que los valores sean válidos
             if posicion is None or distancia is None or not isinstance(posicion, (int, float)) or not isinstance(distancia, (int, float)):
                 print(f"  ⚠️ Valores inválidos para '{address[:50]}...': pos={posicion}, dist={distancia}")
-                direcciones_problematicas.append((float('inf'), float('inf'), address))
+                direcciones_problematicas.append((float('inf'), float('inf'), (coords, address, codigos_barras)))
             else:
-                direcciones_con_posicion.append((posicion, distancia, address))
+                direcciones_con_posicion.append((posicion, distancia, (coords, address, codigos_barras)))
         except Exception as e:
             print(f"  ⚠️ Error procesando '{address[:50]}...': {e}")
             # Colocar al final si hay error
-            direcciones_problematicas.append((float('inf'), float('inf'), address))
+            direcciones_problematicas.append((float('inf'), float('inf'), (coords, address, codigos_barras)))
     
     # Ordenar por posición a lo largo de la línea (menor posición = más cerca del inicio)
     direcciones_con_posicion.sort(key=lambda x: x[0])
     
-    # Extraer solo las direcciones ordenadas
-    direcciones_ordenadas = [address for _, _, address in direcciones_con_posicion]
+    # Extraer las tuplas completas ordenadas
+    direcciones_ordenadas = [item_tuple for _, _, item_tuple in direcciones_con_posicion]
     
     # Añadir direcciones problemáticas al final
     if direcciones_problematicas:
         print(f"  ⚠️ {len(direcciones_problematicas)} direcciones colocadas al final por error en procesamiento")
-        direcciones_ordenadas.extend([address for _, _, address in direcciones_problematicas])
+        direcciones_ordenadas.extend([item_tuple for _, _, item_tuple in direcciones_problematicas])
     
     return direcciones_ordenadas
 
@@ -182,7 +187,7 @@ def procesar_zonas_con_linea(zonas_dict, lineas_por_zona=None):
                                 Si es None, usa ZONE_ROUTE_LINES de config
         
     Returns:
-        dict: Diccionario con direcciones ordenadas por zona
+        dict: Diccionario con direcciones ordenadas por zona (tuplas completas)
     """
     if lineas_por_zona is None:
         lineas_por_zona = ZONE_ROUTE_LINES
@@ -196,7 +201,9 @@ def procesar_zonas_con_linea(zonas_dict, lineas_por_zona=None):
             
             # Mostrar info de entrada
             print(f"  Direcciones de entrada:")
-            for i, (coords, address) in enumerate(direcciones[:3], 1):
+            for i, item in enumerate(direcciones[:3], 1):
+                coords = item[0]
+                address = item[1]
                 print(f"    {i}. {address[:60]}... → {coords}")
             if len(direcciones) > 3:
                 print(f"    ... y {len(direcciones) - 3} más")
@@ -213,7 +220,7 @@ def procesar_zonas_con_linea(zonas_dict, lineas_por_zona=None):
         elif direcciones:
             # Si no hay línea definida para la zona, mantener el orden original
             print(f"  ⚠️ Zona {zona_name}: No hay línea de ruta definida, manteniendo orden original")
-            zonas_ordenadas[zona_name] = [address for _, address in direcciones]
+            zonas_ordenadas[zona_name] = direcciones
         else:
             zonas_ordenadas[zona_name] = []
     

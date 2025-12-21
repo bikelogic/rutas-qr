@@ -64,9 +64,10 @@ def procesar_rutas(metodo='tsp'):
     print("  ✓ Conectado exitosamente")
     
     # 2. Leer datos del spreadsheet
-    print("\n[2/7] Leyendo direcciones y códigos postales...")
-    direcciones_raw, codigos_postales = sheets_manager.leer_direcciones_y_codigos()
+    print("\n[2/7] Leyendo direcciones, códigos postales y códigos de barras...")
+    direcciones_raw, codigos_postales, codigos_barras = sheets_manager.leer_direcciones_y_codigos()
     print(f"  ✓ {len(direcciones_raw)} direcciones leídas")
+    print(f"  ✓ {len(codigos_barras)} códigos de barras leídos")
     
     # 3. Limpiar y procesar direcciones
     print("\n[3/7] Limpiando y procesando direcciones...")
@@ -86,7 +87,8 @@ def procesar_rutas(metodo='tsp'):
     geocoded_addresses, not_found_addresses = geocode_and_store_fast(
         direcciones_completas,
         GOOGLE_MAPS_API_KEY,
-        max_workers=10  # 10 hilos en paralelo
+        max_workers=10,  # 10 hilos en paralelo
+        codigos_barras=codigos_barras  # Pasar códigos de barras
     )
     
     print(f"  ✓ {len(geocoded_addresses)} puntos únicos de entrega geocodificados")
@@ -137,12 +139,13 @@ def procesar_rutas(metodo='tsp'):
     print("="*60)
     print("\nLos resultados han sido escritos en el Google Spreadsheet.")
     print("Columnas de resultados:")
-    print("  - Columna I: Zona Indust")
-    print("  - Columna J: Zona Centre")
-    print("  - Columna K: Zona MiraEst")
-    print("  - Columna L: Zona Mira")
-    print("  - Columna M: Sin zona")
-    print("  - Columna N: No encontradas")
+    print("  - Columna I: Direcciones Zona Indust")
+    print("  - Columna J: Códigos de barras Zona Indust")
+    print("  - Columna K: Direcciones Zona Centre")
+    print("  - Columna L: Códigos de barras Zona Centre")
+    print("  - Columna M: Direcciones Zona Altres")
+    print("  - Columna N: Códigos de barras Zona Altres")
+    print("  - Columna O: No encontradas")
 
 
 def main():
