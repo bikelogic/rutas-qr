@@ -19,7 +19,7 @@ def create_data_model(coordinates):
     data = {}
     data['locations'] = coordinates
     data['num_vehicles'] = 1
-    data['depot'] = 0  # El primer punto es el depósito
+    data['depot'] = 0  # Punto de inicio arbitrario (no es depósito real)
     return data
 
 
@@ -108,9 +108,7 @@ def solve_tsp_problem(geocoded_addresses):
             ordered_addresses.append(geocoded_addresses[node_index])
             index = solution.Value(routing.NextVar(index))
         
-        # Añadir el punto de retorno al inicio para completar el ciclo
-        final_index = manager.IndexToNode(index)
-        ordered_addresses.append(geocoded_addresses[final_index])
+        # No añadir el punto final de retorno - solo puntos de entrega
     
     return ordered_addresses
 

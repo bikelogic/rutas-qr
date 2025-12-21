@@ -103,7 +103,7 @@ def procesar_rutas(metodo='tsp'):
     # 5. Separar por zonas
     print("\n[5/7] Separando direcciones por zonas...")
     zonas_dict = separar_por_zonas(geocoded_addresses)
-    zonas_dict = agregar_punto_inicio(zonas_dict)
+    # zonas_dict = agregar_punto_inicio(zonas_dict)  # Comentado: el depósito no es punto de visita
     
     # Mostrar estadísticas
     stats = obtener_estadisticas_zonas(zonas_dict)

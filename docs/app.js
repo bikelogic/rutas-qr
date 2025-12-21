@@ -108,6 +108,12 @@ function searchInSheet(barcode) {
     
     // Columnas de códigos de barras: J=9, L=11, N=13 (índices 0-based)
     const columnasCodigos = [9, 11, 13]; // J, L, N
+    // Columnas de direcciones: I=8, K=10, M=12
+    const columnasDirecciones = {
+        9: 8,   // J (códigos Indust) -> I (direcciones Indust)
+        11: 10, // L (códigos Centre) -> K (direcciones Centre)
+        13: 12  // N (códigos Altres) -> M (direcciones Altres)
+    };
     const coloresColumnas = {
         9: '#000000',   // J = Negro (Indust)
         11: '#ff0000',  // L = Rojo (Centre)
@@ -148,6 +154,10 @@ function searchInSheet(barcode) {
                 const color = coloresColumnas[colIndex];
                 const zona = nombresZonas[colIndex];
                 
+                // Obtener la dirección de la columna correspondiente
+                const colDireccion = columnasDirecciones[colIndex];
+                const direccion = row[colDireccion] ? row[colDireccion].toString().trim() : 'Dirección no disponible';
+                
                 // Mostrar el número de fila con el color correspondiente
                 rowNumEl.textContent = displayRow;
                 rowNumEl.style.color = color;
@@ -156,7 +166,7 @@ function searchInSheet(barcode) {
                 scannedCodeEl.className = 'value found';
                 scannedCodeEl.style.color = color;
                 
-                cellContentEl.innerHTML = `✅ <strong>${zona}</strong> - Posición ${displayRow}`;
+                cellContentEl.innerHTML = `✅ <strong>${zona}</strong> - Posición ${displayRow}<div class="address-info">📍 ${direccion}</div>`;
                 cellContentEl.style.display = 'block';
                 cellContentEl.style.color = color;
                 
@@ -164,8 +174,8 @@ function searchInSheet(barcode) {
                 statusEl.className = 'status success';
                 statusEl.style.color = color;
                 
-                // Añadir al historial
-                addToHistory(barcode, displayRow, zona, color);
+                // Añadir al historial con la dirección
+                addToHistory(barcode, displayRow, zona, color, direccion);
                 
                 // Vibrar para feedback (patrón de éxito)
                 if (navigator.vibrate) {
@@ -207,7 +217,7 @@ function searchInSheet(barcode) {
     statusEl.className = 'status error';
     statusEl.style.color = '';
     
-    addToHistory(barcode, 'N/A', 'N/A', '#ff4757');
+    // NO agregar al historial cuando no se encuentra
     
     // Vibrar para feedback (patrón de error)
     if (navigator.vibrate) {
@@ -235,7 +245,7 @@ function getColumnLetter(colNum) {
     return letter;
 }
 
-function addToHistory(code, row, zona, color = '#00ff88') {
+function addToHistory(code, row, zona, color = '#00ff88', direccion = '') {
     const historyList = document.getElementById('historyList');
     
     // Limpiar mensaje inicial si es el primer escaneo
@@ -243,18 +253,21 @@ function addToHistory(code, row, zona, color = '#00ff88') {
         historyList.innerHTML = '';
     }
     
-    scanHistory.unshift({ code, row, zona, color, time: new Date() });
+    scanHistory.unshift({ code, row, zona, color, direccion, time: new Date() });
     
     // Mantener solo los últimos 10
     if (scanHistory.length > 10) {
         scanHistory.pop();
     }
     
-    // Renderizar historial
+    // Renderizar historial - solo mostrar encontrados
     historyList.innerHTML = scanHistory.map(item => `
         <div class="history-item">
-            <span class="code">${item.code}</span>
-            <span class="pos" style="color: ${item.color}">${item.row === 'N/A' ? '❌' : `${item.zona} - ${item.row}`}</span>
+            <div>
+                <div class="code" style="font-weight: 600; margin-bottom: 4px;">${item.code}</div>
+                <div style="font-size: 0.85rem; opacity: 0.8;">${item.direccion}</div>
+            </div>
+            <span class="pos" style="color: ${item.color}; font-weight: 600;">${item.zona} - ${item.row}</span>
         </div>
     `).join('');
 }
