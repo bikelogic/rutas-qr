@@ -106,37 +106,66 @@ function searchInSheet(barcode) {
     console.log('Código normalizado:', normalizedBarcode);
     console.log('Total filas en datos:', sheetData.length);
     
-    // Buscar el código en todas las celdas
+    // Columnas de códigos de barras: J=9, L=11, N=13 (índices 0-based)
+    const columnasCodigos = [9, 11, 13]; // J, L, N
+    const coloresColumnas = {
+        9: '#000000',   // J = Negro (Indust)
+        11: '#ff0000',  // L = Rojo (Centre)
+        13: '#00ff00'   // N = Verde (Altres)
+    };
+    const nombresZonas = {
+        9: 'Indust',
+        11: 'Centre',
+        13: 'Altres'
+    };
+    
+    // Buscar solo en las columnas de códigos de barras (J, L, N)
     for (let rowIndex = 0; rowIndex < sheetData.length; rowIndex++) {
         const row = sheetData[rowIndex];
-        for (let colIndex = 0; colIndex < row.length; colIndex++) {
+        
+        for (const colIndex of columnasCodigos) {
+            if (colIndex >= row.length) continue;
+            
             const cellValue = row[colIndex].toString().trim();
+            if (!cellValue) continue;
+            
             const normalizedCell = cellValue.toLowerCase();
             
-            // Múltiples estrategias de búsqueda
-            const exactMatch = normalizedCell === normalizedBarcode;
-            const cellContainsBarcode = normalizedCell.includes(normalizedBarcode);
-            const barcodeContainsCell = normalizedBarcode.includes(normalizedCell) && normalizedCell.length > 3;
-            // También comparar sin ceros a la izquierda
-            const numericMatch = parseInt(normalizedBarcode) === parseInt(normalizedCell) && !isNaN(parseInt(normalizedBarcode));
+            // Múltiples estrategias de búsqueda (el código puede estar separado por comas)
+            const codigos = normalizedCell.split(',').map(c => c.trim());
+            const encontrado = codigos.some(codigo => {
+                const exactMatch = codigo === normalizedBarcode;
+                const codigoContainsBarcode = codigo.includes(normalizedBarcode);
+                const barcodeContainsCodigo = normalizedBarcode.includes(codigo) && codigo.length > 3;
+                const numericMatch = parseInt(normalizedBarcode) === parseInt(codigo) && !isNaN(parseInt(normalizedBarcode));
+                return exactMatch || codigoContainsBarcode || barcodeContainsCodigo || numericMatch;
+            });
             
-            if (exactMatch || cellContainsBarcode || barcodeContainsCell || numericMatch) {
-                // ¡Encontrado!
-                const displayRow = rowIndex + 1; // Las filas empiezan en 1
+            if (encontrado) {
+                // ¡Encontrado! - Mostrar número de fila -1 (porque la fila 1 es cabecera)
+                const displayRow = rowIndex; // rowIndex ya es 0-based, la fila 2 del sheet es rowIndex 1
                 const displayCol = getColumnLetter(colIndex + 1);
+                const color = coloresColumnas[colIndex];
+                const zona = nombresZonas[colIndex];
                 
+                // Mostrar el número de fila con el color correspondiente
                 rowNumEl.textContent = displayRow;
-                colNumEl.textContent = displayCol;
+                rowNumEl.style.color = color;
+                colNumEl.textContent = zona;
+                colNumEl.style.color = color;
                 scannedCodeEl.className = 'value found';
+                scannedCodeEl.style.color = color;
                 
-                cellContentEl.innerHTML = `✅ <strong>Encontrado!</strong><br>Contenido celda: "${cellValue}"`;
+                cellContentEl.innerHTML = `✅ <strong>${zona}</strong> - Posición ${displayRow}`;
                 cellContentEl.style.display = 'block';
+                cellContentEl.style.color = color;
                 
-                statusEl.textContent = `✅ ¡ENCONTRADO! Fila ${displayRow}, Columna ${displayCol}`;
+                statusEl.textContent = `✅ ${zona} - Posición ${displayRow}`;
                 statusEl.className = 'status success';
+                statusEl.style.color = color;
                 
                 // Añadir al historial
-                addToHistory(barcode, displayRow, displayCol);
+                addToHistory(barcode, displayRow, zona, color);
                 
                 // Vibrar para feedback (patrón de éxito)
                 if (navigator.vibrate) {
@@ -149,9 +178,10 @@ function searchInSheet(barcode) {
                     isShowingResult = false;
                     statusEl.textContent = '🔍 Escaneando... Apunta al código de barras';
                     statusEl.className = 'status success';
+                    statusEl.style.color = '';
                 }, 3000);
                 
-                console.log('¡Encontrado en fila', displayRow, 'columna', displayCol);
+                console.log('¡Encontrado en fila', displayRow, 'zona', zona);
                 return true;
             }
         }
@@ -164,15 +194,20 @@ function searchInSheet(barcode) {
     });
     
     rowNumEl.textContent = '-';
+    rowNumEl.style.color = '';
     colNumEl.textContent = '-';
+    colNumEl.style.color = '';
     scannedCodeEl.className = 'value not-found';
-    cellContentEl.innerHTML = `❌ Código "${barcode}" no encontrado en la hoja<br><small>Datos cargados: ${sheetData.length} filas</small>`;
+    scannedCodeEl.style.color = '';
+    cellContentEl.innerHTML = `❌ Código "${barcode}" no encontrado<br><small>Datos cargados: ${sheetData.length} filas</small>`;
     cellContentEl.style.display = 'block';
+    cellContentEl.style.color = '';
     
     statusEl.textContent = `❌ Código no encontrado`;
     statusEl.className = 'status error';
+    statusEl.style.color = '';
     
-    addToHistory(barcode, 'N/A', 'N/A');
+    addToHistory(barcode, 'N/A', 'N/A', '#ff4757');
     
     // Vibrar para feedback (patrón de error)
     if (navigator.vibrate) {
@@ -200,7 +235,7 @@ function getColumnLetter(colNum) {
     return letter;
 }
 
-function addToHistory(code, row, col) {
+function addToHistory(code, row, zona, color = '#00ff88') {
     const historyList = document.getElementById('historyList');
     
     // Limpiar mensaje inicial si es el primer escaneo
@@ -208,7 +243,7 @@ function addToHistory(code, row, col) {
         historyList.innerHTML = '';
     }
     
-    scanHistory.unshift({ code, row, col, time: new Date() });
+    scanHistory.unshift({ code, row, zona, color, time: new Date() });
     
     // Mantener solo los últimos 10
     if (scanHistory.length > 10) {
@@ -219,7 +254,7 @@ function addToHistory(code, row, col) {
     historyList.innerHTML = scanHistory.map(item => `
         <div class="history-item">
             <span class="code">${item.code}</span>
-            <span class="pos">${item.row === 'N/A' ? '❌' : `Fila ${item.row}, Col ${item.col}`}</span>
+            <span class="pos" style="color: ${item.color}">${item.row === 'N/A' ? '❌' : `${item.zona} - ${item.row}`}</span>
         </div>
     `).join('');
 }
