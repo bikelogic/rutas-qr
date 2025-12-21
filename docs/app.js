@@ -1,6 +1,6 @@
-// URL del CSV público de Google Sheets
-// El formato correcto para obtener CSV es: /pub?gid=0&single=true&output=csv
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSMUbPSH39x9bMdABa6O-S0up-GSRvZ7XmOJaxKhFgDhTYoLY-W4MIGuZyqWbLPQbZ7m6vB8VoHNLxq/pub?gid=0&single=true&output=csv';
+// La URL del CSV se carga desde config.js (archivo no versionado)
+// Ver config.example.js para la plantilla
+const SHEET_CSV_URL = CONFIG.SHEET_CSV_URL;
 
 let sheetData = [];
 let isScanning = false;

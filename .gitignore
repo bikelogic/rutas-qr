@@ -48,6 +48,9 @@ secrets/
 config_local.py
 src/config.py
 .env
+
+# Configuración web sensible
+docs/config.js
 .env.local
 
 # ===================================
