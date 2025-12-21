@@ -1,0 +1,104 @@
+# ===================================
+# Python
+# ===================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===================================
+# Entornos virtuales
+# ===================================
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ===================================
+# Archivos SENSIBLES - NO SUBIR
+# ===================================
+key.json
+key1.json
+*.json.bak
+credentials/
+secrets/
+
+# API Keys y configuración privada
+config_local.py
+src/config.py
+.env
+.env.local
+
+# ===================================
+# Caché y datos temporales
+# ===================================
+geocoding_cache.json
+*.cache
+*.tmp
+
+# ===================================
+# IDEs y editores
+# ===================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===================================
+# Logs y testing
+# ===================================
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ===================================
+# Sistema operativo
+# ===================================
+Thumbs.db
+.DS_Store
+*.bak
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.tmp
+*.bak
+*.swp
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Pytest
+.pytest_cache/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
