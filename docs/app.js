@@ -1,6 +1,5 @@
-// La URL del CSV se carga desde config.js (archivo no versionado)
-// Ver config.example.js para la plantilla
-const SHEET_CSV_URL = CONFIG.SHEET_CSV_URL;
+// URL pública del Google Sheet en formato CSV
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSMUbPSH39x9bMdABa6O-S0up-GSRvZ7XmOJaxKhFgDhTYoLY-W4MIGuZyqWbLPQbZ7m6vB8VoHNLxq/pub?gid=0&single=true&output=csv';
 
 let sheetData = [];
 let isScanning = false;
