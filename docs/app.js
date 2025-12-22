@@ -539,3 +539,57 @@ window.addEventListener('beforeunload', () => {
         html5QrCode.stop();
     }
 });
+
+// ========== ENTRADA MANUAL DE CÓDIGO DE BARRAS ==========
+
+function openManualInput() {
+    const modal = document.getElementById('manualModal');
+    const input = document.getElementById('manualCodeInput');
+    modal.style.display = 'flex';
+    input.value = '';
+    input.focus();
+}
+
+function closeManualInput() {
+    const modal = document.getElementById('manualModal');
+    modal.style.display = 'none';
+}
+
+function submitManualCode() {
+    const input = document.getElementById('manualCodeInput');
+    const code = input.value.trim();
+    
+    if (code.length === 0) {
+        input.style.borderColor = '#ef4444';
+        input.placeholder = 'Introduce un código válido';
+        setTimeout(() => {
+            input.style.borderColor = '';
+            input.placeholder = 'Ej: 1234567890';
+        }, 2000);
+        return;
+    }
+    
+    // Cerrar modal
+    closeManualInput();
+    
+    // Buscar el código
+    console.log('Búsqueda manual:', code);
+    searchInSheet(code);
+}
+
+// Cerrar modal con Escape o clic fuera
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeManualInput();
+    }
+    if (e.key === 'Enter' && document.getElementById('manualModal').style.display === 'flex') {
+        submitManualCode();
+    }
+});
+
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('manualModal');
+    if (e.target === modal) {
+        closeManualInput();
+    }
+});

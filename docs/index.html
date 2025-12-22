@@ -19,7 +19,21 @@
             <button id="startBtn" onclick="startScanner()"><span class="btn-icon">📷</span><span class="btn-text"> Iniciar Cámara</span></button>
             <button id="stopBtn" onclick="stopScanner()" disabled><span class="btn-icon">⏹️</span><span class="btn-text"> Parar</span></button>
             <button id="torchBtn" onclick="toggleTorch()" disabled class="torch-btn"><span class="btn-icon">🔦</span><span class="btn-text"> Linterna</span></button>
+            <button class="manual-btn" onclick="openManualInput()"><span class="btn-icon">⌨️</span><span class="btn-text"> Manual</span></button>
             <button class="refresh-btn" onclick="loadSheetData()"><span class="btn-icon">🔄</span><span class="btn-text"> Recargar</span></button>
+        </div>
+
+        <!-- Modal para entrada manual -->
+        <div id="manualModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3>⌨️ Introducir Código Manualmente</h3>
+                <p style="font-size: 0.9rem; color: #aaa; margin-bottom: 15px;">Escribe el código de barras si el lector no puede leerlo</p>
+                <input type="text" id="manualCodeInput" placeholder="Ej: 1234567890" autocomplete="off" inputmode="numeric">
+                <div class="modal-buttons">
+                    <button onclick="closeManualInput()" class="cancel-btn">Cancelar</button>
+                    <button onclick="submitManualCode()" class="submit-btn">Buscar</button>
+                </div>
+            </div>
         </div>
 
         <div id="status" class="status"></div>
