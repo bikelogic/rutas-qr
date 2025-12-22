@@ -318,14 +318,50 @@ function startScanner() {
     ).then(() => {
         isScanning = true;
         document.getElementById('startBtn').disabled = true;
-        document.getElementById('stopBtn').disabled = false;        document.getElementById('torchBtn').disabled = false;        document.getElementById('scanLine').style.display = 'block';
+        document.getElementById('stopBtn').disabled = false;
+        document.getElementById('scanLine').style.display = 'block';
         statusEl.textContent = '🔍 Escaneando... Apunta al código de barras';
         statusEl.className = 'status success';
+        
+        // Inicializar el track de video para la linterna después de un breve delay
+        setTimeout(() => {
+            initTorchSupport();
+        }, 500);
     }).catch((err) => {
         console.error('Error iniciando cámara:', err);
         statusEl.textContent = '❌ Error al acceder a la cámara. Permite el acceso.';
         statusEl.className = 'status error';
     });
+}
+
+// Inicializar soporte de linterna
+function initTorchSupport() {
+    try {
+        const videoElement = document.querySelector('#interactive video');
+        if (videoElement && videoElement.srcObject) {
+            videoTrack = videoElement.srcObject.getVideoTracks()[0];
+            
+            if (videoTrack) {
+                const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+                console.log('Track de video obtenido:', videoTrack.label);
+                console.log('Capacidades:', JSON.stringify(capabilities));
+                
+                // Habilitar botón de linterna
+                document.getElementById('torchBtn').disabled = false;
+                
+                if (capabilities.torch) {
+                    console.log('✅ Linterna soportada');
+                } else {
+                    console.log('⚠️ Torch no reportado en capacidades');
+                }
+            }
+        } else {
+            console.log('Video element no encontrado, reintentando...');
+            setTimeout(initTorchSupport, 300);
+        }
+    } catch (err) {
+        console.error('Error inicializando linterna:', err);
+    }
 }
 
 function onScanSuccess(decodedText, decodedResult) {
@@ -423,8 +459,10 @@ function stopScanner() {
     
     // Apagar linterna si está encendida
     if (isTorchOn) {
-        toggleTorch();
+        isTorchOn = false;
+        document.getElementById('torchBtn').classList.remove('torch-on');
     }
+    videoTrack = null;
     
     html5QrCode.stop().then(() => {
         isScanning = false;
@@ -446,51 +484,51 @@ function stopScanner() {
 
 // Función para activar/desactivar la linterna
 let isTorchOn = false;
+let videoTrack = null;
 
 async function toggleTorch() {
-    if (!html5QrCode || !isScanning) return;
+    if (!isScanning) {
+        console.log('Cámara no activa');
+        return;
+    }
+    
+    const torchBtn = document.getElementById('torchBtn');
+    
+    // Si no tenemos el track, intentar obtenerlo
+    if (!videoTrack) {
+        const videoElement = document.querySelector('#interactive video');
+        if (videoElement && videoElement.srcObject) {
+            videoTrack = videoElement.srcObject.getVideoTracks()[0];
+        }
+    }
+    
+    if (!videoTrack) {
+        console.error('No se pudo obtener el track de video');
+        return;
+    }
     
     try {
-        const torchBtn = document.getElementById('torchBtn');
+        // Toggle el estado
+        const newTorchState = !isTorchOn;
         
-        if (isTorchOn) {
-            await html5QrCode.applyVideoConstraints({
-                advanced: [{ torch: false }]
-            });
-            isTorchOn = false;
-            torchBtn.classList.remove('torch-on');
-            console.log('Linterna apagada');
-        } else {
-            await html5QrCode.applyVideoConstraints({
-                advanced: [{ torch: true }]
-            });
-            isTorchOn = true;
-            torchBtn.classList.add('torch-on');
-            console.log('Linterna encendida');
-        }
+        console.log('Intentando poner linterna:', newTorchState);
+        
+        // Aplicar el constraint
+        await videoTrack.applyConstraints({
+            advanced: [{ torch: newTorchState }]
+        });
+        
+        isTorchOn = newTorchState;
+        torchBtn.classList.toggle('torch-on', isTorchOn);
+        console.log('✅ Linterna:', isTorchOn ? 'ENCENDIDA' : 'APAGADA');
+        
     } catch (err) {
-        console.error('Error con la linterna:', err);
-        // Intentar método alternativo usando el track directamente
-        try {
-            const videoElement = document.querySelector('#interactive video');
-            if (videoElement && videoElement.srcObject) {
-                const track = videoElement.srcObject.getVideoTracks()[0];
-                const capabilities = track.getCapabilities();
-                
-                if (capabilities.torch) {
-                    isTorchOn = !isTorchOn;
-                    await track.applyConstraints({
-                        advanced: [{ torch: isTorchOn }]
-                    });
-                    document.getElementById('torchBtn').classList.toggle('torch-on', isTorchOn);
-                    console.log('Linterna (método alt):', isTorchOn ? 'encendida' : 'apagada');
-                } else {
-                    alert('Tu dispositivo no soporta linterna');
-                }
-            }
-        } catch (err2) {
-            console.error('Error método alternativo:', err2);
-            alert('No se pudo activar la linterna');
+        console.error('Error controlando linterna:', err.name, err.message);
+        
+        // Verificar capacidades
+        if (videoTrack.getCapabilities) {
+            const caps = videoTrack.getCapabilities();
+            console.log('Capacidades torch:', caps.torch);
         }
     }
 }
