@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚴 Escáner BikeLogic</h1>
+        <h1>🚴BikeLogic Scan</h1>
         
         <div class="scanner-container">
             <div id="interactive" class="viewport"></div>
@@ -16,12 +16,13 @@
         </div>
 
         <div class="controls">
-            <button id="startBtn" onclick="startScanner()">📷 Iniciar Cámara</button>
-            <button id="stopBtn" onclick="stopScanner()" disabled>⏹️ Parar</button>
-            <button class="refresh-btn" onclick="loadSheetData()">🔄 Recargar Datos</button>
+            <button id="startBtn" onclick="startScanner()"><span class="btn-icon">📷</span><span class="btn-text"> Iniciar Cámara</span></button>
+            <button id="stopBtn" onclick="stopScanner()" disabled><span class="btn-icon">⏹️</span><span class="btn-text"> Parar</span></button>
+            <button id="torchBtn" onclick="toggleTorch()" disabled class="torch-btn"><span class="btn-icon">🔦</span><span class="btn-text"> Linterna</span></button>
+            <button class="refresh-btn" onclick="loadSheetData()"><span class="btn-icon">🔄</span><span class="btn-text"> Recargar</span></button>
         </div>
 
-        <div id="status" class="status">Presiona "Iniciar Cámara" para comenzar</div>
+        <div id="status" class="status"></div>
 
         <div class="result-box">
             <h3>📊 Código Escaneado</h3>
@@ -55,8 +56,8 @@
         </div>
     </div>
 
-    <!-- QuaggaJS - Biblioteca gratuita para escaneo de códigos de barras -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <!-- html5-qrcode - Biblioteca más precisa para códigos de barras (usa ZXing) -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

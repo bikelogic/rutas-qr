@@ -5,7 +5,15 @@ let sheetData = [];
 let isScanning = false;
 let lastScannedCode = '';
 let scanHistory = [];
-let isShowingResult = false; // Para mantener el resultado visible 3 segundos
+let isShowingResult = false;
+let html5QrCode = null;
+
+// Sistema de validación - códigos de 10 dígitos se aceptan con menos lecturas
+let codeBuffer = [];
+const REQUIRED_READS_10_DIGITS = 2; // Solo 2 lecturas para códigos de 10 dígitos
+const REQUIRED_READS_OTHER = 3; // 3 lecturas para otros códigos
+const CODE_BUFFER_TIMEOUT = 2000;
+let bufferResetTimer = null;
 
 // Cargar datos del Google Sheets al iniciar
 document.addEventListener('DOMContentLoaded', () => {
@@ -114,9 +122,9 @@ function searchInSheet(barcode) {
         13: 12  // N (códigos Altres) -> M (direcciones Altres)
     };
     const coloresColumnas = {
-        9: '#000000',   // J = Negro (Indust)
-        11: '#ff0000',  // L = Rojo (Centre)
-        13: '#00ff00'   // N = Verde (Altres)
+        9: '#6366f1',   // J = Índigo (Indust)
+        11: '#f59e0b',  // L = Ámbar (Centre)
+        13: '#10b981'   // N = Verde (Altres)
     };
     const nombresZonas = {
         9: 'Indust',
@@ -278,129 +286,218 @@ function startScanner() {
     statusEl.textContent = '📷 Iniciando cámara...';
     statusEl.className = 'status loading';
 
-    Quagga.init({
-        inputStream: {
-            name: "Live",
-            type: "LiveStream",
-            target: document.querySelector('#interactive'),
-            constraints: {
-                width: { min: 640 },
-                height: { min: 480 },
-                facingMode: "environment" // Cámara trasera
-            },
+    // Crear instancia de html5-qrcode
+    html5QrCode = new Html5Qrcode("interactive");
+    
+    const config = {
+        fps: 20,
+        // Sin qrbox - escanea toda la imagen para mayor flexibilidad
+        aspectRatio: 1.777778,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.CODABAR,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E
+        ],
+        experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
         },
-        locator: {
-            patchSize: "medium",
-            halfSample: true
-        },
-        numOfWorkers: navigator.hardwareConcurrency || 4,
-        frequency: 10,
-        decoder: {
-            readers: [
-                "code_128_reader",
-                "ean_reader",
-                "ean_8_reader",
-                "code_39_reader",
-                "code_39_vin_reader",
-                "codabar_reader",
-                "upc_reader",
-                "upc_e_reader",
-                "i2of5_reader"
-            ]
-        },
-        locate: true
-    }, function(err) {
-        if (err) {
-            console.error('Error iniciando QuaggaJS:', err);
-            statusEl.textContent = '❌ Error al acceder a la cámara. Permite el acceso.';
-            statusEl.className = 'status error';
-            return;
-        }
-        
-        Quagga.start();
+        rememberLastUsedCamera: true,
+        disableFlip: false
+    };
+
+    html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        onScanSuccess,
+        onScanFailure
+    ).then(() => {
         isScanning = true;
-        
         document.getElementById('startBtn').disabled = true;
-        document.getElementById('stopBtn').disabled = false;
-        document.getElementById('scanLine').style.display = 'block';
-        
+        document.getElementById('stopBtn').disabled = false;        document.getElementById('torchBtn').disabled = false;        document.getElementById('scanLine').style.display = 'block';
         statusEl.textContent = '🔍 Escaneando... Apunta al código de barras';
         statusEl.className = 'status success';
-    });
-
-    // Evento cuando detecta un código
-    Quagga.onDetected(function(result) {
-        const code = result.codeResult.code;
-        
-        // Evitar escaneos mientras se muestra el resultado (3 segundos)
-        if (isShowingResult) return;
-        
-        // Evitar escaneos duplicados consecutivos
-        if (code === lastScannedCode) return;
-        lastScannedCode = code;
-        
-        console.log('Código detectado:', code);
-        
-        // Buscar en la hoja
-        searchInSheet(code);
-        
-        // Reset después de 3 segundos para permitir nuevo escaneo del mismo código
-        setTimeout(() => {
-            lastScannedCode = '';
-        }, 3000);
-    });
-
-    // Dibujar rectángulo de detección
-    Quagga.onProcessed(function(result) {
-        const drawingCtx = Quagga.canvas.ctx.overlay;
-        const drawingCanvas = Quagga.canvas.dom.overlay;
-
-        if (result) {
-            if (result.boxes) {
-                drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-                result.boxes.filter(box => box !== result.box).forEach(box => {
-                    Quagga.ImageDebug.drawPath(box, { x: 0, y: 1 }, drawingCtx, { 
-                        color: "rgba(0, 212, 255, 0.5)", 
-                        lineWidth: 2 
-                    });
-                });
-            }
-
-            if (result.box) {
-                Quagga.ImageDebug.drawPath(result.box, { x: 0, y: 1 }, drawingCtx, { 
-                    color: "#00ff88", 
-                    lineWidth: 3 
-                });
-            }
-
-            if (result.codeResult && result.codeResult.code) {
-                Quagga.ImageDebug.drawPath(result.line, { x: 'x', y: 'y' }, drawingCtx, { 
-                    color: '#ff0000', 
-                    lineWidth: 3 
-                });
-            }
-        }
+    }).catch((err) => {
+        console.error('Error iniciando cámara:', err);
+        statusEl.textContent = '❌ Error al acceder a la cámara. Permite el acceso.';
+        statusEl.className = 'status error';
     });
 }
 
+function onScanSuccess(decodedText, decodedResult) {
+    // Evitar escaneos mientras se muestra el resultado
+    if (isShowingResult) return;
+    
+    // Limpiar código
+    const cleanCode = decodedText.replace(/[^0-9A-Za-z]/g, '');
+    
+    // SIEMPRE aceptar códigos de exactamente 10 dígitos numéricos
+    const is10Digits = /^\d{10}$/.test(cleanCode);
+    
+    console.log(`Detectado: ${cleanCode} (${cleanCode.length} chars, 10 dígitos: ${is10Digits})`);
+    
+    // Para códigos de 10 dígitos, procesarlos directamente con menos validación
+    if (is10Digits) {
+        addToCodeBuffer(cleanCode, true);
+    } else if (cleanCode.length >= 6 && cleanCode.length <= 15) {
+        addToCodeBuffer(cleanCode, false);
+    }
+}
+
+function onScanFailure(error) {
+    // Ignorar errores de escaneo silenciosamente (ocurren constantemente mientras busca)
+}
+
+// Sistema de validación con múltiples lecturas
+function addToCodeBuffer(code, is10Digits) {
+    if (bufferResetTimer) {
+        clearTimeout(bufferResetTimer);
+    }
+    
+    codeBuffer.push(code);
+    
+    // Límite del buffer
+    if (codeBuffer.length > 10) {
+        codeBuffer = codeBuffer.slice(-10);
+    }
+    
+    // Contar ocurrencias
+    const counts = {};
+    codeBuffer.forEach(c => {
+        counts[c] = (counts[c] || 0) + 1;
+    });
+    
+    // Determinar cuántas lecturas se requieren
+    const requiredReads = is10Digits ? REQUIRED_READS_10_DIGITS : REQUIRED_READS_OTHER;
+    
+    // Buscar código validado
+    for (const [detectedCode, count] of Object.entries(counts)) {
+        const isThisCode10Digits = /^\d{10}$/.test(detectedCode);
+        const threshold = isThisCode10Digits ? REQUIRED_READS_10_DIGITS : REQUIRED_READS_OTHER;
+        
+        if (count >= threshold && detectedCode !== lastScannedCode) {
+            console.log(`✅ Código validado: ${detectedCode} (${count}/${threshold} lecturas)`);
+            
+            lastScannedCode = detectedCode;
+            codeBuffer = [];
+            
+            searchInSheet(detectedCode);
+            
+            setTimeout(() => {
+                lastScannedCode = '';
+            }, 3000);
+            return;
+        }
+    }
+    
+    // Mostrar progreso
+    const maxCount = Math.max(...Object.values(counts));
+    const maxCode = Object.keys(counts).find(k => counts[k] === maxCount);
+    const isMax10 = /^\d{10}$/.test(maxCode);
+    const threshold = isMax10 ? REQUIRED_READS_10_DIGITS : REQUIRED_READS_OTHER;
+    
+    if (maxCount >= 1) {
+        const statusEl = document.getElementById('status');
+        const progress = Math.round((maxCount / threshold) * 100);
+        statusEl.textContent = `🔍 Detectando: ${maxCode} (${Math.min(progress, 99)}%)`;
+    }
+    
+    bufferResetTimer = setTimeout(() => {
+        if (codeBuffer.length > 0) {
+            console.log('Buffer reseteado');
+            codeBuffer = [];
+            const statusEl = document.getElementById('status');
+            if (!isShowingResult) {
+                statusEl.textContent = '🔍 Escaneando... Apunta al código de barras';
+            }
+        }
+    }, CODE_BUFFER_TIMEOUT);
+}
+
 function stopScanner() {
-    if (!isScanning) return;
+    if (!isScanning || !html5QrCode) return;
     
-    Quagga.stop();
-    isScanning = false;
+    // Apagar linterna si está encendida
+    if (isTorchOn) {
+        toggleTorch();
+    }
     
-    document.getElementById('startBtn').disabled = false;
-    document.getElementById('stopBtn').disabled = true;
-    document.getElementById('scanLine').style.display = 'none';
+    html5QrCode.stop().then(() => {
+        isScanning = false;
+        html5QrCode = null;
+        
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('torchBtn').disabled = true;
+        document.getElementById('torchBtn').classList.remove('torch-on');
+        document.getElementById('scanLine').style.display = 'none';
+        
+        const statusEl = document.getElementById('status');
+        statusEl.textContent = 'Cámara detenida. Presiona "Iniciar Cámara" para continuar.';
+        statusEl.className = 'status';
+    }).catch(err => {
+        console.error('Error deteniendo cámara:', err);
+    });
+}
+
+// Función para activar/desactivar la linterna
+let isTorchOn = false;
+
+async function toggleTorch() {
+    if (!html5QrCode || !isScanning) return;
     
-    const statusEl = document.getElementById('status');
-    statusEl.textContent = 'Cámara detenida. Presiona "Iniciar Cámara" para continuar.';
-    statusEl.className = 'status';
+    try {
+        const torchBtn = document.getElementById('torchBtn');
+        
+        if (isTorchOn) {
+            await html5QrCode.applyVideoConstraints({
+                advanced: [{ torch: false }]
+            });
+            isTorchOn = false;
+            torchBtn.classList.remove('torch-on');
+            console.log('Linterna apagada');
+        } else {
+            await html5QrCode.applyVideoConstraints({
+                advanced: [{ torch: true }]
+            });
+            isTorchOn = true;
+            torchBtn.classList.add('torch-on');
+            console.log('Linterna encendida');
+        }
+    } catch (err) {
+        console.error('Error con la linterna:', err);
+        // Intentar método alternativo usando el track directamente
+        try {
+            const videoElement = document.querySelector('#interactive video');
+            if (videoElement && videoElement.srcObject) {
+                const track = videoElement.srcObject.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                
+                if (capabilities.torch) {
+                    isTorchOn = !isTorchOn;
+                    await track.applyConstraints({
+                        advanced: [{ torch: isTorchOn }]
+                    });
+                    document.getElementById('torchBtn').classList.toggle('torch-on', isTorchOn);
+                    console.log('Linterna (método alt):', isTorchOn ? 'encendida' : 'apagada');
+                } else {
+                    alert('Tu dispositivo no soporta linterna');
+                }
+            }
+        } catch (err2) {
+            console.error('Error método alternativo:', err2);
+            alert('No se pudo activar la linterna');
+        }
+    }
 }
 
 // Limpiar al cerrar
 window.addEventListener('beforeunload', () => {
-    if (isScanning) {
-        Quagga.stop();
+    if (isScanning && html5QrCode) {
+        html5QrCode.stop();
     }
 });
