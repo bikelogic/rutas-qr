@@ -4,11 +4,15 @@ Script principal para procesamiento de rutas de entrega BikeLogic
 Este script permite elegir entre dos métodos de optimización:
 1. TSP (Traveling Salesman Problem) - Viajante de comercio
 2. Line Distance - Distancia a línea de ruta
+
+Y dos métodos de limpieza de direcciones:
+- Reglas (tradicional)
+- Modelo IA (T5 fine-tuned)
 """
 
 import sys
 from sheets_manager import crear_manager_sheets
-from address_cleaner import procesar_direcciones
+from address_cleaner import procesar_direcciones, procesar_direcciones_nuevo_formato
 from geocoding import geocode_and_store_fast, get_cache_stats
 from zone_manager import separar_por_zonas, agregar_punto_inicio, obtener_estadisticas_zonas
 from tsp_solver import procesar_zonas_con_tsp
@@ -25,6 +29,16 @@ def mostrar_menu():
     print("  1. TSP (Viajante de Comercio) - Ruta más corta")
     print("  2. Línea de Ruta - Ordenar según línea predefinida")
     print("  3. Salir")
+    print("-"*60)
+
+
+def mostrar_menu_limpieza():
+    """Muestra el menú de método de limpieza de direcciones."""
+    print("\n" + "-"*60)
+    print("  MÉTODO DE LIMPIEZA DE DIRECCIONES")
+    print("-"*60)
+    print("  1. Reglas (método tradicional)")
+    print("  2. Modelo IA (T5 fine-tuned) - Recomendado")
     print("-"*60)
 
 
@@ -47,15 +61,38 @@ def solicitar_opcion():
             print("❌ Por favor ingrese un número válido.")
 
 
-def procesar_rutas(metodo='tsp'):
+def solicitar_metodo_limpieza():
+    """
+    Solicita al usuario que seleccione el método de limpieza.
+    
+    Returns:
+        bool: True para modelo IA, False para reglas
+    """
+    while True:
+        try:
+            opcion = input("\nIngrese método de limpieza (1 o 2): ").strip()
+            opcion_num = int(opcion)
+            if opcion_num == 1:
+                return False  # Reglas
+            elif opcion_num == 2:
+                return True   # Modelo IA
+            else:
+                print("❌ Opción inválida. Por favor ingrese 1 o 2.")
+        except ValueError:
+            print("❌ Por favor ingrese un número válido.")
+
+
+def procesar_rutas(metodo='tsp', usar_modelo_ia=False):
     """
     Función principal que procesa las rutas según el método seleccionado.
     
     Args:
         metodo (str): 'tsp' o 'line' para elegir el método de optimización
+        usar_modelo_ia (bool): Si True usa modelo IA para limpiar direcciones
     """
     print("\n" + "="*60)
     print(f"  PROCESANDO CON MÉTODO: {metodo.upper()}")
+    print(f"  LIMPIEZA: {'MODELO IA' if usar_modelo_ia else 'REGLAS'}")
     print("="*60)
     
     # 1. Conexión con Google Sheets
@@ -63,16 +100,23 @@ def procesar_rutas(metodo='tsp'):
     sheets_manager = crear_manager_sheets()
     print("  ✓ Conectado exitosamente")
     
-    # 2. Leer datos del spreadsheet
-    print("\n[2/7] Leyendo direcciones, códigos postales y códigos de barras...")
-    direcciones_raw, codigos_postales, codigos_barras = sheets_manager.leer_direcciones_y_codigos()
+    # 2. Leer datos del spreadsheet (nuevo formato: columna B)
+    print("\n[2/7] Leyendo direcciones de columna B y códigos de barras...")
+    direcciones_raw, codigos_barras = sheets_manager.leer_direcciones_completas()
     print(f"  ✓ {len(direcciones_raw)} direcciones leídas")
     print(f"  ✓ {len(codigos_barras)} códigos de barras leídos")
     
-    # 3. Limpiar y procesar direcciones
+    # 3. Limpiar y procesar direcciones (nuevo formato)
     print("\n[3/7] Limpiando y procesando direcciones...")
-    direcciones_completas = procesar_direcciones(direcciones_raw, codigos_postales)
-    print(f"  ✓ Direcciones procesadas correctamente")
+    metodo_limpieza = "Modelo IA" if usar_modelo_ia else "Reglas"
+    print(f"  📋 Usando método: {metodo_limpieza}")
+    
+    direcciones_completas = procesar_direcciones_nuevo_formato(
+        direcciones_raw, 
+        usar_modelo=usar_modelo_ia,
+        mostrar_comparativa=True  # Mostrar antes/después
+    )
+    print(f"  ✓ {len(direcciones_completas)} direcciones procesadas")
     
     # 4. Geocodificar direcciones
     print("\n[4/7] Geocodificando direcciones (esto puede tardar varios minutos)...")
@@ -164,20 +208,24 @@ def main():
         
         if opcion == 1:
             print("\n🚴 Has seleccionado: TSP (Viajante de Comercio)")
+            mostrar_menu_limpieza()
+            usar_modelo = solicitar_metodo_limpieza()
             confirmacion = input("¿Deseas continuar? (s/n): ").strip().lower()
             if confirmacion == 's':
                 try:
-                    procesar_rutas(metodo='tsp')
+                    procesar_rutas(metodo='tsp', usar_modelo_ia=usar_modelo)
                 except Exception as e:
                     print(f"\n❌ ERROR: {str(e)}")
                     print("Por favor revisa la configuración y vuelve a intentar.")
             
         elif opcion == 2:
             print("\n🚴 Has seleccionado: Línea de Ruta")
+            mostrar_menu_limpieza()
+            usar_modelo = solicitar_metodo_limpieza()
             confirmacion = input("¿Deseas continuar? (s/n): ").strip().lower()
             if confirmacion == 's':
                 try:
-                    procesar_rutas(metodo='line')
+                    procesar_rutas(metodo='line', usar_modelo_ia=usar_modelo)
                 except Exception as e:
                     print(f"\n❌ ERROR: {str(e)}")
                     print("Por favor revisa la configuración y vuelve a intentar.")

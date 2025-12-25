@@ -4,6 +4,9 @@ Módulo para limpieza y normalización de direcciones
 import re
 from config import DEFAULT_CITY
 
+# Variable para controlar qué método usar
+USAR_MODELO_IA = False
+
 
 def limpiar_direccion_con_reglas(direccion):
     """
@@ -106,3 +109,44 @@ def procesar_direcciones(direcciones_raw, codigos_postales):
     direcciones_completas = construir_direcciones_completas(direcciones_limpia, codigos_postales)
     
     return direcciones_completas
+
+
+def procesar_direcciones_nuevo_formato(direcciones_raw, usar_modelo=False, mostrar_comparativa=True):
+    """
+    Procesa direcciones que vienen completas en una sola columna.
+    Permite elegir entre limpieza con reglas o con modelo IA.
+    
+    Args:
+        direcciones_raw (list): Lista de direcciones completas sin procesar
+        usar_modelo (bool): Si True usa modelo IA, si False usa reglas
+        mostrar_comparativa (bool): Si True, imprime antes/después
+        
+    Returns:
+        list: Lista de direcciones procesadas
+    """
+    if usar_modelo:
+        # Usar modelo IA
+        from address_model_cleaner import procesar_direcciones_con_modelo
+        return procesar_direcciones_con_modelo(direcciones_raw, mostrar_comparativa=mostrar_comparativa)
+    else:
+        # Usar reglas (limpieza básica para nuevo formato)
+        direcciones_procesadas = []
+        
+        if mostrar_comparativa:
+            print("\n" + "="*80)
+            print("  COMPARATIVA DE DIRECCIONES (RAW → PROCESADA CON REGLAS)")
+            print("="*80)
+        
+        for i, direccion_raw in enumerate(direcciones_raw):
+            # Limpieza básica con reglas
+            direccion_procesada = limpiar_direccion_con_reglas(direccion_raw)
+            direcciones_procesadas.append(direccion_procesada)
+            
+            if mostrar_comparativa:
+                print(f"\n  [{i+1}] ANTES:  {direccion_raw}")
+                print(f"      DESPUÉS: {direccion_procesada}")
+        
+        if mostrar_comparativa:
+            print("\n" + "="*80)
+        
+        return direcciones_procesadas

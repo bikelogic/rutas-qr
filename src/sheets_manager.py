@@ -71,6 +71,7 @@ class SheetsManager:
     def leer_direcciones_y_codigos(self):
         """
         Lee direcciones, códigos postales y códigos de barras del spreadsheet.
+        (Formato antiguo: columnas separadas)
         
         Returns:
             tuple: (direcciones, codigos_postales, codigos_barras)
@@ -80,6 +81,19 @@ class SheetsManager:
         codigos_barras = self.leer_columna('Hoja 1!d2:d300')
         
         return direcciones, codigos_postales, codigos_barras
+    
+    def leer_direcciones_completas(self):
+        """
+        Lee direcciones completas de la columna B (nuevo formato: todo junto).
+        También lee códigos de barras de la columna C.
+        
+        Returns:
+            tuple: (direcciones_completas, codigos_barras)
+        """
+        direcciones = self.leer_columna('Hoja 1!b2:b300')
+        codigos_barras = self.leer_columna('Hoja 1!c2:c300')
+        
+        return direcciones, codigos_barras
     
     def escribir_resultados_por_zona(self, zonas_ordenadas, columnas_destino=None, excluir_inicio_fin=True):
         """
