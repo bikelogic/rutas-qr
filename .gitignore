@@ -60,6 +60,17 @@ geocoding_cache.json
 *.cache
 *.tmp
 
+# Data - Ignorar archivos excepto "Poligons i Rutes"
+data/carrers_SantCugat.csv
+data/Correccions.csv
+
+!data/Poligons*
+
+# Modelos de IA entrenados (muy pesados para GitHub)
+models/address_model/
+*.safetensors
+*.bin
+
 # ===================================
 # IDEs y editores
 # ===================================

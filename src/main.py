@@ -1,98 +1,27 @@
 """
 Script principal para procesamiento de rutas de entrega BikeLogic
 
-Este script permite elegir entre dos métodos de optimización:
-1. TSP (Traveling Salesman Problem) - Viajante de comercio
-2. Line Distance - Distancia a línea de ruta
-
-Y dos métodos de limpieza de direcciones:
-- Reglas (tradicional)
-- Modelo IA (T5 fine-tuned)
+Optimiza rutas usando distancia a línea de ruta predefinida.
+Limpieza de direcciones con modelo IA (T5 fine-tuned).
 """
 
 import sys
 from sheets_manager import crear_manager_sheets
-from address_cleaner import procesar_direcciones, procesar_direcciones_nuevo_formato
+from address_model_cleaner import procesar_direcciones_con_modelo
 from geocoding import geocode_and_store_fast, get_cache_stats
-from zone_manager import separar_por_zonas, agregar_punto_inicio, obtener_estadisticas_zonas
-from tsp_solver import procesar_zonas_con_tsp
+from zone_manager import separar_por_zonas, obtener_estadisticas_zonas
 from line_distance_solver import procesar_zonas_con_linea
 from config import GOOGLE_MAPS_API_KEY
 
 
-def mostrar_menu():
-    """Muestra el menú de opciones al usuario."""
-    print("\n" + "="*60)
-    print("  BIKELOGIC - SISTEMA DE OPTIMIZACIÓN DE RUTAS")
-    print("="*60)
-    print("\nSeleccione el método de optimización:")
-    print("  1. TSP (Viajante de Comercio) - Ruta más corta")
-    print("  2. Línea de Ruta - Ordenar según línea predefinida")
-    print("  3. Salir")
-    print("-"*60)
-
-
-def mostrar_menu_limpieza():
-    """Muestra el menú de método de limpieza de direcciones."""
-    print("\n" + "-"*60)
-    print("  MÉTODO DE LIMPIEZA DE DIRECCIONES")
-    print("-"*60)
-    print("  1. Reglas (método tradicional)")
-    print("  2. Modelo IA (T5 fine-tuned) - Recomendado")
-    print("-"*60)
-
-
-def solicitar_opcion():
+def procesar_rutas():
     """
-    Solicita al usuario que seleccione una opción.
-    
-    Returns:
-        int: Opción seleccionada (1, 2 o 3)
-    """
-    while True:
-        try:
-            opcion = input("\nIngrese su opción (1, 2 o 3): ").strip()
-            opcion_num = int(opcion)
-            if opcion_num in [1, 2, 3]:
-                return opcion_num
-            else:
-                print("❌ Opción inválida. Por favor ingrese 1, 2 o 3.")
-        except ValueError:
-            print("❌ Por favor ingrese un número válido.")
-
-
-def solicitar_metodo_limpieza():
-    """
-    Solicita al usuario que seleccione el método de limpieza.
-    
-    Returns:
-        bool: True para modelo IA, False para reglas
-    """
-    while True:
-        try:
-            opcion = input("\nIngrese método de limpieza (1 o 2): ").strip()
-            opcion_num = int(opcion)
-            if opcion_num == 1:
-                return False  # Reglas
-            elif opcion_num == 2:
-                return True   # Modelo IA
-            else:
-                print("❌ Opción inválida. Por favor ingrese 1 o 2.")
-        except ValueError:
-            print("❌ Por favor ingrese un número válido.")
-
-
-def procesar_rutas(metodo='tsp', usar_modelo_ia=False):
-    """
-    Función principal que procesa las rutas según el método seleccionado.
-    
-    Args:
-        metodo (str): 'tsp' o 'line' para elegir el método de optimización
-        usar_modelo_ia (bool): Si True usa modelo IA para limpiar direcciones
+    Función principal que procesa las rutas.
+    Usa método Línea de Ruta + Limpieza IA.
     """
     print("\n" + "="*60)
-    print(f"  PROCESANDO CON MÉTODO: {metodo.upper()}")
-    print(f"  LIMPIEZA: {'MODELO IA' if usar_modelo_ia else 'REGLAS'}")
+    print("  PROCESANDO RUTAS")
+    print("  Método: LÍNEA DE RUTA + LIMPIEZA IA")
     print("="*60)
     
     # 1. Conexión con Google Sheets
@@ -100,20 +29,17 @@ def procesar_rutas(metodo='tsp', usar_modelo_ia=False):
     sheets_manager = crear_manager_sheets()
     print("  ✓ Conectado exitosamente")
     
-    # 2. Leer datos del spreadsheet (nuevo formato: columna B)
-    print("\n[2/7] Leyendo direcciones de columna B y códigos de barras...")
+    # 2. Leer datos del spreadsheet (columna A: códigos, columna D: direcciones)
+    print("\n[2/7] Leyendo códigos de barras (A) y direcciones (D)...")
     direcciones_raw, codigos_barras = sheets_manager.leer_direcciones_completas()
     print(f"  ✓ {len(direcciones_raw)} direcciones leídas")
     print(f"  ✓ {len(codigos_barras)} códigos de barras leídos")
     
-    # 3. Limpiar y procesar direcciones (nuevo formato)
-    print("\n[3/7] Limpiando y procesando direcciones...")
-    metodo_limpieza = "Modelo IA" if usar_modelo_ia else "Reglas"
-    print(f"  📋 Usando método: {metodo_limpieza}")
+    # 3. Limpiar direcciones con modelo IA
+    print("\n[3/7] Limpiando direcciones con modelo IA...")
     
-    direcciones_completas = procesar_direcciones_nuevo_formato(
+    direcciones_completas = procesar_direcciones_con_modelo(
         direcciones_raw, 
-        usar_modelo=usar_modelo_ia,
         mostrar_comparativa=True  # Mostrar antes/después
     )
     print(f"  ✓ {len(direcciones_completas)} direcciones procesadas")
@@ -157,12 +83,9 @@ def procesar_rutas(metodo='tsp', usar_modelo_ia=False):
             print(f"     - {zona}: {count} direcciones")
     print(f"     TOTAL: {stats['total']} direcciones")
     
-    # 6. Optimizar rutas según método seleccionado
-    print(f"\n[6/7] Optimizando rutas con método {metodo.upper()}...")
-    if metodo == 'tsp':
-        zonas_ordenadas = procesar_zonas_con_tsp(zonas_dict)
-    else:  # metodo == 'line'
-        zonas_ordenadas = procesar_zonas_con_linea(zonas_dict)
+    # 6. Optimizar rutas con método línea
+    print("\n[6/7] Optimizando rutas con método LÍNEA...")
+    zonas_ordenadas = procesar_zonas_con_linea(zonas_dict)
     print("  ✓ Rutas optimizadas correctamente")
     
     # Contar totales
@@ -172,10 +95,7 @@ def procesar_rutas(metodo='tsp', usar_modelo_ia=False):
     # 7. Escribir resultados en Google Sheets
     print("\n[7/7] Escribiendo resultados en Google Sheets...")
     sheets_manager.limpiar_columnas_resultados()
-    # Escribir direcciones: si es método 'line', incluir todos los puntos
-    # Si es método 'tsp', excluir el punto de inicio/fin (depósito)
-    excluir_deposito = (metodo == 'tsp')
-    sheets_manager.escribir_resultados_por_zona(zonas_ordenadas, excluir_inicio_fin=excluir_deposito)
+    sheets_manager.escribir_resultados_por_zona(zonas_ordenadas, excluir_inicio_fin=False)
     sheets_manager.escribir_no_encontradas(not_found_addresses)
     
     print("\n" + "="*60)
@@ -183,13 +103,11 @@ def procesar_rutas(metodo='tsp', usar_modelo_ia=False):
     print("="*60)
     print("\nLos resultados han sido escritos en el Google Spreadsheet.")
     print("Columnas de resultados:")
-    print("  - Columna I: Direcciones Zona Indust")
-    print("  - Columna J: Códigos de barras Zona Indust")
-    print("  - Columna K: Direcciones Zona Centre")
-    print("  - Columna L: Códigos de barras Zona Centre")
-    print("  - Columna M: Direcciones Zona Altres")
-    print("  - Columna N: Códigos de barras Zona Altres")
-    print("  - Columna O: No encontradas")
+    print("  - Columna F-G: Zona Fàbriques (direcciones + códigos)")
+    print("  - Columna I-J: Zona Centre (direcciones + códigos)")
+    print("  - Columna L-M: Zona Mirasol (direcciones + códigos)")
+    print("  - Columna O-P: Fuera de polígonos (direcciones + códigos)")
+    print("  - Columna Q: No encontradas")
 
 
 def main():
@@ -202,43 +120,11 @@ def main():
     print("║" + " "*58 + "║")
     print("╚" + "═"*58 + "╝")
     
-    while True:
-        mostrar_menu()
-        opcion = solicitar_opcion()
-        
-        if opcion == 1:
-            print("\n🚴 Has seleccionado: TSP (Viajante de Comercio)")
-            mostrar_menu_limpieza()
-            usar_modelo = solicitar_metodo_limpieza()
-            confirmacion = input("¿Deseas continuar? (s/n): ").strip().lower()
-            if confirmacion == 's':
-                try:
-                    procesar_rutas(metodo='tsp', usar_modelo_ia=usar_modelo)
-                except Exception as e:
-                    print(f"\n❌ ERROR: {str(e)}")
-                    print("Por favor revisa la configuración y vuelve a intentar.")
-            
-        elif opcion == 2:
-            print("\n🚴 Has seleccionado: Línea de Ruta")
-            mostrar_menu_limpieza()
-            usar_modelo = solicitar_metodo_limpieza()
-            confirmacion = input("¿Deseas continuar? (s/n): ").strip().lower()
-            if confirmacion == 's':
-                try:
-                    procesar_rutas(metodo='line', usar_modelo_ia=usar_modelo)
-                except Exception as e:
-                    print(f"\n❌ ERROR: {str(e)}")
-                    print("Por favor revisa la configuración y vuelve a intentar.")
-        
-        elif opcion == 3:
-            print("\n👋 Saliendo del programa...")
-            sys.exit(0)
-        
-        # Preguntar si desea procesar otra ruta
-        continuar = input("\n¿Deseas procesar otra ruta? (s/n): ").strip().lower()
-        if continuar != 's':
-            print("\n👋 Saliendo del programa...")
-            break
+    try:
+        procesar_rutas()
+    except Exception as e:
+        print(f"\n❌ ERROR: {str(e)}")
+        print("Por favor revisa la configuración y vuelve a intentar.")
 
 
 if __name__ == "__main__":

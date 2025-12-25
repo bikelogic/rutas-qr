@@ -84,14 +84,13 @@ class SheetsManager:
     
     def leer_direcciones_completas(self):
         """
-        Lee direcciones completas de la columna B (nuevo formato: todo junto).
-        También lee códigos de barras de la columna C.
+        Lee direcciones completas de la columna D y códigos de barras de columna A.
         
         Returns:
             tuple: (direcciones_completas, codigos_barras)
         """
-        direcciones = self.leer_columna('Hoja 1!b2:b300')
-        codigos_barras = self.leer_columna('Hoja 1!c2:c300')
+        direcciones = self.leer_columna('Hoja 1!d2:d300')
+        codigos_barras = self.leer_columna('Hoja 1!a2:a300')
         
         return direcciones, codigos_barras
     
@@ -114,9 +113,10 @@ class SheetsManager:
         """
         if columnas_destino is None:
             columnas_destino = {
-                'Indust': ('i2', 'j2'),
-                'Centre': ('k2', 'l2'),
-                'Altres': ('m2', 'n2')
+                'Indust': ('f2', 'g2'),
+                'Centre': ('i2', 'j2'),
+                'Mirasol': ('l2', 'm2'),
+                'sin_zona': ('o2', 'p2')
             }
         
         resultados = {}
@@ -160,13 +160,13 @@ class SheetsManager:
         
         return resultados
     
-    def escribir_no_encontradas(self, not_found_addresses, rango='o2'):
+    def escribir_no_encontradas(self, not_found_addresses, rango='q2'):
         """
         Escribe las direcciones que no se pudieron geocodificar.
         
         Args:
             not_found_addresses (list): Lista de direcciones no encontradas
-            rango (str): Rango inicial donde escribir (ahora columna O)
+            rango (str): Rango inicial donde escribir (columna Q)
             
         Returns:
             dict: Resultado de la operación
@@ -185,11 +185,11 @@ class SheetsManager:
         Limpia las columnas de resultados antes de escribir nuevos datos.
         
         Args:
-            columnas (list): Lista de rangos a limpiar ej: ['i2:i300', 'j2:j300']
+            columnas (list): Lista de rangos a limpiar ej: ['d2:d300', 'e2:e300']
         """
         if columnas is None:
-            # Nuevas columnas: I-J (Indust), K-L (Centre), M-N (Altres), O (No encontradas)
-            columnas = ['i2:i300', 'j2:j300', 'k2:k300', 'l2:l300', 'm2:m300', 'n2:n300', 'o2:o300']
+            # Columnas: F-G (Indust), I-J (Centre), L-M (Mirasol), O-P (sin_zona), Q (No encontradas)
+            columnas = ['f2:f300', 'g2:g300', 'i2:i300', 'j2:j300', 'l2:l300', 'm2:m300', 'o2:o300', 'p2:p300', 'q2:q300']
         
         for columna in columnas:
             self.sheet.values().clear(

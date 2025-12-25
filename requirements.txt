@@ -20,3 +20,9 @@ ortools>=9.5.0
 # Cálculos numéricos
 numpy>=1.24.0
 scipy>=1.10.0
+# Modelo IA para limpieza de direcciones (opcional)
+# Si no usas el modelo IA, puedes comentar estas líneas
+transformers>=4.35.0
+torch>=2.0.0
+sentencepiece>=0.1.99
+pandas>=2.0.0

@@ -43,7 +43,8 @@ def separar_por_zonas(geocoded_addresses):
     zonas = {
         'Indust': [],
         'Centre': [],
-        'Altres': []
+        'Mirasol': [],
+        'sin_zona': []
     }
     
     for item in geocoded_addresses:
@@ -56,14 +57,16 @@ def separar_por_zonas(geocoded_addresses):
         
         zona = determinar_zona(coords)
         
-        # Mapear zonas antiguas a nuevas
+        # Mapear zonas a columnas
         if zona == 'Indust':
             zonas['Indust'].append((coords, address, codigos_barras))
         elif zona == 'Centre':
             zonas['Centre'].append((coords, address, codigos_barras))
+        elif zona == 'sin_zona':
+            zonas['sin_zona'].append((coords, address, codigos_barras))
         else:
-            # MiraEst, Mira, sin_zona -> Altres
-            zonas['Altres'].append((coords, address, codigos_barras))
+            # MiraEst, Mira -> Mirasol
+            zonas['Mirasol'].append((coords, address, codigos_barras))
     
     return zonas
 

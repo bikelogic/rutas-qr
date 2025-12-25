@@ -113,23 +113,26 @@ function searchInSheet(barcode) {
     console.log('Código normalizado:', normalizedBarcode);
     console.log('Total filas en datos:', sheetData.length);
     
-    // Columnas de códigos de barras: J=9, L=11, N=13 (índices 0-based)
-    const columnasCodigos = [9, 11, 13]; // J, L, N
-    // Columnas de direcciones: I=8, K=10, M=12
+    // Columnas de códigos de barras: G=6, J=9, M=12, P=15 (índices 0-based)
+    const columnasCodigos = [6, 9, 12, 15]; // G, J, M, P
+    // Columnas de direcciones: F=5, I=8, L=11, O=14
     const columnasDirecciones = {
-        9: 8,   // J (códigos Indust) -> I (direcciones Indust)
-        11: 10, // L (códigos Centre) -> K (direcciones Centre)
-        13: 12  // N (códigos Altres) -> M (direcciones Altres)
+        6: 5,   // G (códigos Indust) -> F (direcciones Indust)
+        9: 8,   // J (códigos Centre) -> I (direcciones Centre)
+        12: 11, // M (códigos Mirasol) -> L (direcciones Mirasol)
+        15: 14  // P (códigos sin_zona) -> O (direcciones sin_zona)
     };
     const coloresColumnas = {
-        9: '#6366f1',   // J = Índigo (Indust)
-        11: '#f59e0b',  // L = Ámbar (Centre)
-        13: '#10b981'   // N = Verde (Altres)
+        6: '#6366f1',   // G = Índigo (Indust/Fàbriques)
+        9: '#f59e0b',   // J = Ámbar (Centre)
+        12: '#10b981',  // M = Verde (Mirasol)
+        15: '#ef4444'   // P = Rojo (sin_zona/Altres)
     };
     const nombresZonas = {
-        9: 'Indust',
-        11: 'Centre',
-        13: 'Altres'
+        6: 'Fàbriques',
+        9: 'Centre',
+        12: 'Mirasol',
+        15: 'Altres'
     };
     
     // Buscar solo en las columnas de códigos de barras (J, L, N)
