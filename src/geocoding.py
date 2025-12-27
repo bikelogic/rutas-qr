@@ -159,6 +159,8 @@ def geocode_and_store(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, delay=
     
     # Separar direcciones en caché y no caché
     addresses_to_geocode = []
+    addresses_already_queued = set()  # Para evitar geocodificar la misma dirección múltiples veces
+    
     for address in addresses:
         cached_coords = get_from_cache(address, cache) if use_cache else None
         codigos_list = address_to_codigos.get(address, [])
@@ -173,8 +175,11 @@ def geocode_and_store(addresses, google_maps_api_key=GOOGLE_MAPS_API_KEY, delay=
                 if codigo and codigo not in geocoded_addresses_dict[cached_coords]['codigos']:
                     geocoded_addresses_dict[cached_coords]['codigos'].append(codigo)
         else:
-            cache_misses += 1
-            addresses_to_geocode.append(address)
+            # Solo añadir si no se ha añadido ya a la cola de geocodificación
+            if address not in addresses_already_queued:
+                cache_misses += 1
+                addresses_to_geocode.append(address)
+                addresses_already_queued.add(address)
     
     if use_cache and cache_hits > 0:
         print(f"  ✓ Caché: {cache_hits} direcciones recuperadas, {cache_misses} nuevas a geocodificar")

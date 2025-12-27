@@ -67,7 +67,7 @@ data/Correccions.csv
 !data/Poligons*
 
 # Modelos de IA entrenados (muy pesados para GitHub)
-models/address_model/
+models/
 *.safetensors
 *.bin
 

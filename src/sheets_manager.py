@@ -68,31 +68,56 @@ class SheetsManager:
         
         return result
     
-    def leer_direcciones_y_codigos(self):
+    def leer_rango_filas(self, rango):
         """
-        Lee direcciones, códigos postales y códigos de barras del spreadsheet.
-        (Formato antiguo: columnas separadas)
+        Lee valores de un rango de filas completo (múltiples columnas).
         
+        Args:
+            rango (str): Rango en formato 'Hoja!A1:E100'
+            
         Returns:
-            tuple: (direcciones, codigos_postales, codigos_barras)
+            list: Lista de listas con los valores de cada fila
         """
-        direcciones = self.leer_columna('Hoja 1!c2:c300')
-        codigos_postales = self.leer_columna('Hoja 1!a2:a300')
-        codigos_barras = self.leer_columna('Hoja 1!d2:d300')
+        result = self.sheet.values().get(
+            spreadsheetId=self.spreadsheet_id,
+            range=rango
+        ).execute()
         
-        return direcciones, codigos_postales, codigos_barras
+        return result.get('values', [])
     
     def leer_direcciones_completas(self):
         """
-        Lee direcciones completas de la columna D y códigos de barras de columna A.
+        Lee direcciones completas de la columna E, códigos de barras de columna A,
+        y columna D para filtrar filas que contengan 'Q-PRINTING'.
         
         Returns:
-            tuple: (direcciones_completas, codigos_barras)
+            tuple: (direcciones_completas, codigos_barras, filas_eliminadas)
+                   filas_eliminadas es una lista de tuplas (fila_num, codigo, texto_d)
         """
-        direcciones = self.leer_columna('Hoja 1!d2:d300')
-        codigos_barras = self.leer_columna('Hoja 1!a2:a300')
+        # Leer columnas A, D y E de una vez (A=códigos, D=filtro, E=direcciones)
+        filas = self.leer_rango_filas('Hoja 1!a2:e1000')
         
-        return direcciones, codigos_barras
+        direcciones = []
+        codigos_barras = []
+        filas_eliminadas = []
+        
+        for i, fila in enumerate(filas):
+            # Asegurar que la fila tiene suficientes columnas
+            codigo = fila[0] if len(fila) > 0 else ''
+            columna_d = fila[3] if len(fila) > 3 else ''  # Columna D (índice 3)
+            direccion = fila[4] if len(fila) > 4 else ''  # Columna E (índice 4)
+            
+            # Verificar si contiene Q-PRINTING (case-insensitive)
+            if 'Q-PRINTING' in str(columna_d).upper():
+                filas_eliminadas.append((i + 2, codigo, columna_d))  # +2 porque empezamos en fila 2
+                continue
+            
+            # Solo añadir si hay dirección
+            if direccion:
+                direcciones.append(direccion)
+                codigos_barras.append(codigo)
+        
+        return direcciones, codigos_barras, filas_eliminadas
     
     def escribir_resultados_por_zona(self, zonas_ordenadas, columnas_destino=None, excluir_inicio_fin=True):
         """
@@ -113,10 +138,10 @@ class SheetsManager:
         """
         if columnas_destino is None:
             columnas_destino = {
-                'Indust': ('f2', 'g2'),
-                'Centre': ('i2', 'j2'),
-                'Mirasol': ('l2', 'm2'),
-                'sin_zona': ('o2', 'p2')
+                'Indust': ('g2', 'h2'),
+                'Centre': ('j2', 'k2'),
+                'Mirasol': ('m2', 'n2'),
+                'sin_zona': ('p2', 'q2')
             }
         
         resultados = {}
@@ -185,11 +210,12 @@ class SheetsManager:
         Limpia las columnas de resultados antes de escribir nuevos datos.
         
         Args:
-            columnas (list): Lista de rangos a limpiar ej: ['d2:d300', 'e2:e300']
+            columnas (list): Lista de rangos a limpiar ej: ['d2:d1000', 'e2:e1000']
         """
         if columnas is None:
             # Columnas: F-G (Indust), I-J (Centre), L-M (Mirasol), O-P (sin_zona), Q (No encontradas)
-            columnas = ['f2:f300', 'g2:g300', 'i2:i300', 'j2:j300', 'l2:l300', 'm2:m300', 'o2:o300', 'p2:p300', 'q2:q300']
+            # Nota: R no se limpia (contiene datos permanentes)
+            columnas = ['g2:g1000', 'h2:h1000', 'j2:j1000', 'k2:k1000', 'm2:m1000', 'n2:n1000', 'p2:p1000', 'q2:q1000']
         
         for columna in columnas:
             self.sheet.values().clear(

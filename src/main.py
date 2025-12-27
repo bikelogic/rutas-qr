@@ -29,11 +29,17 @@ def procesar_rutas():
     sheets_manager = crear_manager_sheets()
     print("  ✓ Conectado exitosamente")
     
-    # 2. Leer datos del spreadsheet (columna A: códigos, columna D: direcciones)
-    print("\n[2/7] Leyendo códigos de barras (A) y direcciones (D)...")
-    direcciones_raw, codigos_barras = sheets_manager.leer_direcciones_completas()
+    # 2. Leer datos del spreadsheet (columna A: códigos, columna D: filtro, columna E: direcciones)
+    print("\n[2/7] Leyendo códigos de barras (A) y direcciones (E)...")
+    direcciones_raw, codigos_barras, filas_eliminadas = sheets_manager.leer_direcciones_completas()
     print(f"  ✓ {len(direcciones_raw)} direcciones leídas")
     print(f"  ✓ {len(codigos_barras)} códigos de barras leídos")
+    
+    # Mostrar filas eliminadas por Q-PRINTING
+    if filas_eliminadas:
+        print(f"\n  🚫 {len(filas_eliminadas)} filas eliminadas (Q-PRINTING detectado):")
+        for fila_num, codigo, texto_d in filas_eliminadas:
+            print(f"     Fila {fila_num}: Código={codigo}, Columna D='{texto_d}'")
     
     # 3. Limpiar direcciones con modelo IA
     print("\n[3/7] Limpiando direcciones con modelo IA...")

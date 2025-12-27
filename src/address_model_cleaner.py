@@ -63,7 +63,7 @@ def _cargar_modelo():
         from transformers import T5Tokenizer, T5ForConditionalGeneration
         import torch
         
-        model_path = Path(__file__).parent.parent / "models" / "address_model"
+        model_path = Path(__file__).parent.parent / "models" / "address_model4"
         
         if not model_path.exists():
             raise FileNotFoundError(f"No se encontró el modelo en: {model_path}")

@@ -113,29 +113,29 @@ function searchInSheet(barcode) {
     console.log('Código normalizado:', normalizedBarcode);
     console.log('Total filas en datos:', sheetData.length);
     
-    // Columnas de códigos de barras: G=6, J=9, M=12, P=15 (índices 0-based)
-    const columnasCodigos = [6, 9, 12, 15]; // G, J, M, P
-    // Columnas de direcciones: F=5, I=8, L=11, O=14
+    // Columnas de códigos de barras: H=7, K=10, N=13, Q=16 (índices 0-based)
+    const columnasCodigos = [7, 10, 13, 16]; // H, K, N, Q
+    // Columnas de direcciones: G=6, J=9, M=12, P=15
     const columnasDirecciones = {
-        6: 5,   // G (códigos Indust) -> F (direcciones Indust)
-        9: 8,   // J (códigos Centre) -> I (direcciones Centre)
-        12: 11, // M (códigos Mirasol) -> L (direcciones Mirasol)
-        15: 14  // P (códigos sin_zona) -> O (direcciones sin_zona)
+        7: 6,   // H (códigos Indust) -> G (direcciones Indust)
+        10: 9,   // K (códigos Centre) -> J (direcciones Centre)
+        13: 12, // N (códigos Mirasol) -> M (direcciones Mirasol)
+        16: 15  // Q (códigos sin_zona) -> P (direcciones sin_zona)
     };
     const coloresColumnas = {
-        6: '#6366f1',   // G = Índigo (Indust/Fàbriques)
-        9: '#f59e0b',   // J = Ámbar (Centre)
-        12: '#10b981',  // M = Verde (Mirasol)
-        15: '#ef4444'   // P = Rojo (sin_zona/Altres)
+        7: '#6366f1',   // H = Índigo (Indust/Fàbriques)
+        10: '#f59e0b',   // K = Ámbar (Centre)
+        13: '#10b981',  // N = Verde (Mirasol)
+        16: '#ef4444'   // Q = Rojo (sin_zona/Altres)
     };
     const nombresZonas = {
-        6: 'Fàbriques',
-        9: 'Centre',
-        12: 'Mirasol',
-        15: 'Altres'
+        7: 'Fàbriques',
+        10: 'Centre',
+        13: 'Mirasol',
+        16: 'Altres'
     };
     
-    // Buscar solo en las columnas de códigos de barras (J, L, N)
+    // Buscar solo en las columnas de códigos de barras (H, K, N, Q)
     for (let rowIndex = 0; rowIndex < sheetData.length; rowIndex++) {
         const row = sheetData[rowIndex];
         
