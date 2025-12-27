@@ -140,14 +140,66 @@ def limpiar_direccion_con_modelo(direccion):
     return resultado, 'modelo'
 
 
-def procesar_direcciones_con_modelo(direcciones_raw, mostrar_comparativa=True):
+def _procesar_batch_con_modelo(direcciones_batch):
+    """
+    Procesa un lote de direcciones con el modelo IA de forma eficiente.
+    
+    Args:
+        direcciones_batch (list): Lista de direcciones a procesar
+        
+    Returns:
+        list: Lista de direcciones procesadas
+    """
+    import torch
+    global _session_cache
+    
+    if not direcciones_batch:
+        return []
+    
+    model, tokenizer = _cargar_modelo()
+    device = next(model.parameters()).device
+    
+    # Preparar inputs para todo el batch
+    input_texts = ["normalizar: " + dir for dir in direcciones_batch]
+    
+    # Tokenizar todo el batch de una vez
+    inputs = tokenizer(
+        input_texts,
+        return_tensors="pt",
+        max_length=256,
+        truncation=True,
+        padding=True  # Importante para batch
+    ).to(device)
+    
+    # Generar todas las salidas de una vez
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_length=128,
+            num_beams=4,
+            early_stopping=True
+        )
+    
+    # Decodificar resultados
+    resultados = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+    
+    # Guardar en cache
+    for direccion, resultado in zip(direcciones_batch, resultados):
+        key = _normalizar_key(direccion)
+        _session_cache[key] = resultado
+    
+    return resultados
+
+
+def procesar_direcciones_con_modelo(direcciones_raw, mostrar_comparativa=True, batch_size=16):
     """
     Procesa una lista de direcciones usando lookup + modelo IA.
-    Optimizado para evitar procesar direcciones repetidas.
+    Optimizado con procesamiento por lotes (batch) para mayor velocidad.
     
     Args:
         direcciones_raw (list): Lista de direcciones sin procesar
         mostrar_comparativa (bool): Si True, imprime antes/después
+        batch_size (int): Número de direcciones a procesar por lote (default: 16)
         
     Returns:
         list: Lista de direcciones procesadas
@@ -158,27 +210,73 @@ def procesar_direcciones_con_modelo(direcciones_raw, mostrar_comparativa=True):
     print("\n  🤖 Procesando direcciones...")
     
     # Primero cargar lookup (rápido)
-    _cargar_lookup()
+    lookup_dict = _cargar_lookup()
     
-    direcciones_procesadas = []
+    # Separar direcciones: las que están en lookup/cache vs las que necesitan modelo
+    direcciones_procesadas = [None] * len(direcciones_raw)  # Pre-alocar lista
+    direcciones_para_modelo = []  # (índice, dirección)
     stats = {'cache': 0, 'lookup': 0, 'modelo': 0}
     
+    # Primera pasada: resolver lookup y cache
+    for i, direccion_raw in enumerate(direcciones_raw):
+        key = _normalizar_key(direccion_raw)
+        
+        # Buscar en cache de sesión
+        if key in _session_cache:
+            direcciones_procesadas[i] = _session_cache[key]
+            stats['cache'] += 1
+        # Buscar en lookup
+        elif key in lookup_dict:
+            resultado = lookup_dict[key]
+            _session_cache[key] = resultado
+            direcciones_procesadas[i] = resultado
+            stats['lookup'] += 1
+        else:
+            # Marcar para procesar con modelo
+            direcciones_para_modelo.append((i, direccion_raw))
+    
+    # Segunda pasada: procesar con modelo en lotes (batch)
+    if direcciones_para_modelo:
+        print(f"  ⚡ Procesando {len(direcciones_para_modelo)} direcciones nuevas en lotes de {batch_size}...")
+        
+        # Procesar en batches
+        for batch_start in range(0, len(direcciones_para_modelo), batch_size):
+            batch_end = min(batch_start + batch_size, len(direcciones_para_modelo))
+            batch_items = direcciones_para_modelo[batch_start:batch_end]
+            
+            # Extraer solo las direcciones del batch
+            batch_direcciones = [item[1] for item in batch_items]
+            
+            # Procesar batch completo
+            resultados_batch = _procesar_batch_con_modelo(batch_direcciones)
+            
+            # Asignar resultados a sus posiciones originales
+            for (idx, direccion_raw), resultado in zip(batch_items, resultados_batch):
+                direcciones_procesadas[idx] = resultado
+                stats['modelo'] += 1
+            
+            print(f"     ✓ Lote {batch_start//batch_size + 1}: {len(batch_items)} direcciones procesadas")
+    
+    # Mostrar comparativa si está habilitado
     if mostrar_comparativa:
         print("\n" + "="*80)
         print("  COMPARATIVA DE DIRECCIONES (RAW → PROCESADA)")
         print("="*80)
-    
-    for i, direccion_raw in enumerate(direcciones_raw):
-        direccion_procesada, fuente = limpiar_direccion_con_modelo(direccion_raw)
-        direcciones_procesadas.append(direccion_procesada)
-        stats[fuente] += 1
         
-        if mostrar_comparativa:
+        for i, (direccion_raw, direccion_procesada) in enumerate(zip(direcciones_raw, direcciones_procesadas)):
+            key = _normalizar_key(direccion_raw)
+            # Determinar fuente
+            if key in lookup_dict:
+                fuente = 'lookup'
+            elif any(idx == i for idx, _ in direcciones_para_modelo):
+                fuente = 'modelo'
+            else:
+                fuente = 'cache'
+            
             icono = {'cache': '♻️', 'lookup': '📚', 'modelo': '🤖'}[fuente]
             print(f"\n  [{i+1}] {icono} ANTES:  {direccion_raw}")
             print(f"      DESPUÉS: {direccion_procesada}")
-    
-    if mostrar_comparativa:
+        
         print("\n" + "="*80)
     
     # Mostrar estadísticas
@@ -189,5 +287,7 @@ def procesar_direcciones_con_modelo(direcciones_raw, mostrar_comparativa=True):
     
     if stats['modelo'] == 0:
         print(f"     ⚡ ¡No fue necesario cargar el modelo IA!")
+    elif stats['modelo'] > 0:
+        print(f"     ⚡ Procesadas en lotes de {batch_size} (mucho más rápido)")
     
     return direcciones_procesadas
