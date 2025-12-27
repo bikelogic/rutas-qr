@@ -20,6 +20,7 @@
             <button id="stopBtn" onclick="stopScanner()" disabled><span class="btn-icon">⏹️</span><span class="btn-text"> Parar</span></button>
             <button id="torchBtn" onclick="toggleTorch()" disabled class="torch-btn"><span class="btn-icon">🔦</span><span class="btn-text"> Linterna</span></button>
             <button class="manual-btn" onclick="openManualInput()"><span class="btn-icon">⌨️</span><span class="btn-text"> Manual</span></button>
+            <button class="exceso-btn" onclick="openExcesoModal()"><span class="btn-icon">📦</span><span class="btn-text"> Exceso</span></button>
             <button class="refresh-btn" onclick="loadSheetData()"><span class="btn-icon">🔄</span><span class="btn-text"> Recargar</span></button>
         </div>
 
@@ -32,6 +33,92 @@
                 <div class="modal-buttons">
                     <button onclick="closeManualInput()" class="cancel-btn">Cancelar</button>
                     <button onclick="submitManualCode()" class="submit-btn">Buscar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para Exceso de Peso/Volumen -->
+        <div id="excesoModal" class="modal" style="display: none;">
+            <div class="modal-content modal-exceso">
+                <h3>📦 Excés de Pes/Volum</h3>
+                
+                <!-- Paso 1: Escanear código -->
+                <div id="excesoStep1" class="exceso-step">
+                    <p class="step-description">Escaneja o escriu el codi de barres</p>
+                    <div class="exceso-scanner-container">
+                        <div id="excesoScannerArea" class="exceso-scanner-area">
+                            <div id="excesoScanner"></div>
+                            <button id="excesoScanBtn" onclick="startExcesoScanner()" class="scan-start-btn">
+                                <span class="btn-icon">📷</span> Escanejar
+                            </button>
+                            <button id="excesoStopBtn" onclick="stopExcesoScanner()" class="scan-stop-btn" style="display:none;">
+                                <span class="btn-icon">⏹️</span> Parar
+                            </button>
+                        </div>
+                        <div class="exceso-manual-input">
+                            <span class="input-divider">o</span>
+                            <input type="text" id="excesoBarcode" placeholder="Codi de barres" autocomplete="off">
+                            <button onclick="searchExcesoBarcode()" class="search-btn">🔍</button>
+                        </div>
+                    </div>
+                    <div id="excesoBarcodeResult" class="barcode-result" style="display:none;"></div>
+                </div>
+                
+                <!-- Paso 2: Datos del exceso (oculto hasta encontrar código) -->
+                <div id="excesoStep2" class="exceso-step" style="display: none;">
+                    <div class="exceso-info-found">
+                        <div class="info-row">
+                            <span class="info-label">Codi:</span>
+                            <span id="excesoFoundCode" class="info-value"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">PCS:</span>
+                            <span id="excesoFoundPcs" class="info-value"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Customer:</span>
+                            <span id="excesoFoundCustomer" class="info-value"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="exceso-form">
+                        <div class="form-group">
+                            <label for="excesoPeso">Pes (kg)</label>
+                            <input type="number" id="excesoPeso" placeholder="0.00" step="0.01" min="0">
+                        </div>
+                        <div class="form-row-3">
+                            <div class="form-group">
+                                <label for="excesoLargo">Llarg (cm)</label>
+                                <input type="number" id="excesoLargo" placeholder="0" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="excesoAncho">Ample (cm)</label>
+                                <input type="number" id="excesoAncho" placeholder="0" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="excesoAlto">Alt (cm)</label>
+                                <input type="number" id="excesoAlto" placeholder="0" min="0">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipus</label>
+                            <div class="tipo-buttons">
+                                <button type="button" id="btnDelivery" class="tipo-btn active" onclick="selectTipo('DELIVERY')">
+                                    🚚 Delivery
+                                </button>
+                                <button type="button" id="btnBooking" class="tipo-btn" onclick="selectTipo('BOOKING')">
+                                    📋 Booking
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="excesoStatus" class="exceso-status" style="display:none;"></div>
+                
+                <div class="modal-buttons">
+                    <button onclick="closeExcesoModal()" class="cancel-btn">Cancel·lar</button>
+                    <button id="excesoSubmitBtn" onclick="submitExceso()" class="submit-btn" disabled>Afegir Excés</button>
                 </div>
             </div>
         </div>

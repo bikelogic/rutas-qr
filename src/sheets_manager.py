@@ -214,7 +214,6 @@ class SheetsManager:
         """
         if columnas is None:
             # Columnas: F-G (Indust), I-J (Centre), L-M (Mirasol), O-P (sin_zona), Q (No encontradas)
-            # Nota: R no se limpia (contiene datos permanentes)
             columnas = ['g2:g1000', 'h2:h1000', 'j2:j1000', 'k2:k1000', 'm2:m1000', 'n2:n1000', 'p2:p1000', 'q2:q1000']
         
         for columna in columnas:

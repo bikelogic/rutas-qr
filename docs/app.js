@@ -1,5 +1,11 @@
-// URL pública del Google Sheet en formato CSV
+// URL pública del Google Sheet en formato CSV (per mostrar les direccions ordenades)
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSMUbPSH39x9bMdABa6O-S0up-GSRvZ7XmOJaxKhFgDhTYoLY-W4MIGuZyqWbLPQbZ7m6vB8VoHNLxq/pub?gid=0&single=true&output=csv';
+
+// ========== CONFIGURACIÓ API EXCESOS ==========
+// URL de l'API de Google Apps Script (l'única cosa visible aquí)
+// Els IDs dels spreadsheets estan DINS l'script de Google, no aquí
+// Després de desplegar l'script, posa la URL aquí
+const EXCESOS_API_URL = 'https://script.google.com/macros/s/AKfycbzj8lnGkIDhABzlW3MSEcVSj88U-tUhZDQq8_eNPFG3Aklkmj0Rz4doeCqXZ1XgzmnK/exec';
 
 let sheetData = [];
 let isScanning = false;
@@ -594,5 +600,331 @@ document.addEventListener('click', (e) => {
     const modal = document.getElementById('manualModal');
     if (e.target === modal) {
         closeManualInput();
+    }
+    const excesoModal = document.getElementById('excesoModal');
+    if (e.target === excesoModal) {
+        closeExcesoModal();
+    }
+});
+
+// ========== FUNCIONALIDAD EXCESO DE PESO/VOLUMEN ==========
+
+let excesoHtml5QrCode = null;
+let excesoScanning = false;
+let excesoData = {
+    barcode: '',
+    pcs: '',
+    customer: '',
+    tipo: 'DELIVERY'
+};
+
+function openExcesoModal() {
+    const modal = document.getElementById('excesoModal');
+    modal.style.display = 'flex';
+    resetExcesoForm();
+}
+
+function closeExcesoModal() {
+    const modal = document.getElementById('excesoModal');
+    modal.style.display = 'none';
+    stopExcesoScanner();
+    resetExcesoForm();
+}
+
+function resetExcesoForm() {
+    // Reset paso 1
+    document.getElementById('excesoBarcode').value = '';
+    document.getElementById('excesoBarcodeResult').style.display = 'none';
+    
+    // Reset paso 2
+    document.getElementById('excesoStep2').style.display = 'none';
+    document.getElementById('excesoPeso').value = '';
+    document.getElementById('excesoLargo').value = '';
+    document.getElementById('excesoAncho').value = '';
+    document.getElementById('excesoAlto').value = '';
+    
+    // Reset tipo
+    selectTipo('DELIVERY');
+    
+    // Reset status
+    document.getElementById('excesoStatus').style.display = 'none';
+    
+    // Deshabilitar botón submit
+    document.getElementById('excesoSubmitBtn').disabled = true;
+    
+    // Reset data
+    excesoData = {
+        barcode: '',
+        pcs: '',
+        customer: '',
+        tipo: 'DELIVERY'
+    };
+}
+
+function selectTipo(tipo) {
+    excesoData.tipo = tipo;
+    
+    const btnDelivery = document.getElementById('btnDelivery');
+    const btnBooking = document.getElementById('btnBooking');
+    
+    if (tipo === 'DELIVERY') {
+        btnDelivery.classList.add('active');
+        btnBooking.classList.remove('active');
+    } else {
+        btnDelivery.classList.remove('active');
+        btnBooking.classList.add('active');
+    }
+}
+
+async function startExcesoScanner() {
+    if (excesoScanning) return;
+    
+    document.getElementById('excesoScanBtn').style.display = 'none';
+    document.getElementById('excesoStopBtn').style.display = 'block';
+    
+    excesoHtml5QrCode = new Html5Qrcode("excesoScanner");
+    
+    const config = {
+        fps: 15,
+        aspectRatio: 2.0,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.CODABAR,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E
+        ]
+    };
+    
+    try {
+        await excesoHtml5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText) => {
+                const cleanCode = decodedText.replace(/[^0-9A-Za-z]/g, '');
+                document.getElementById('excesoBarcode').value = cleanCode;
+                stopExcesoScanner();
+                searchExcesoBarcode();
+            },
+            () => {} // Ignorar errores de escaneo
+        );
+        excesoScanning = true;
+    } catch (err) {
+        console.error('Error iniciando escáner exceso:', err);
+        document.getElementById('excesoScanBtn').style.display = 'block';
+        document.getElementById('excesoStopBtn').style.display = 'none';
+    }
+}
+
+async function stopExcesoScanner() {
+    if (!excesoScanning || !excesoHtml5QrCode) return;
+    
+    try {
+        await excesoHtml5QrCode.stop();
+    } catch (e) {
+        console.log('Error parando escáner:', e);
+    }
+    
+    excesoScanning = false;
+    excesoHtml5QrCode = null;
+    
+    document.getElementById('excesoScanBtn').style.display = 'block';
+    document.getElementById('excesoStopBtn').style.display = 'none';
+}
+
+async function searchExcesoBarcode() {
+    const barcode = document.getElementById('excesoBarcode').value.trim();
+    const resultEl = document.getElementById('excesoBarcodeResult');
+    
+    if (!barcode) {
+        resultEl.textContent = '❌ Introdueix un codi de barres';
+        resultEl.className = 'barcode-result error';
+        resultEl.style.display = 'block';
+        return;
+    }
+    
+    resultEl.textContent = '⏳ Buscant...';
+    resultEl.className = 'barcode-result loading';
+    resultEl.style.display = 'block';
+    
+    // Buscar localment al CSV ja carregat (columna A=codi, B=PCS, C=Customer)
+    const result = searchBarcodeInLocalData(barcode);
+    
+    if (result.found) {
+        // Codi trobat localment
+        excesoData.barcode = result.barcode;
+        excesoData.pcs = result.pcs;
+        excesoData.customer = result.customer;
+        
+        resultEl.textContent = '✅ Codi trobat!';
+        resultEl.className = 'barcode-result success';
+        
+        // Mostrar pas 2
+        document.getElementById('excesoFoundCode').textContent = result.barcode;
+        document.getElementById('excesoFoundPcs').textContent = result.pcs || '-';
+        document.getElementById('excesoFoundCustomer').textContent = result.customer || '-';
+        document.getElementById('excesoStep2').style.display = 'block';
+        document.getElementById('excesoSubmitBtn').disabled = false;
+        
+        // Vibrar èxit
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]);
+        }
+    } else {
+        resultEl.textContent = '❌ Codi no trobat a les dades carregades';
+        resultEl.className = 'barcode-result error';
+        document.getElementById('excesoStep2').style.display = 'none';
+        document.getElementById('excesoSubmitBtn').disabled = true;
+        
+        // Vibrar error
+        if (navigator.vibrate) {
+            navigator.vibrate([200, 100, 200]);
+        }
+    }
+}
+
+/**
+ * Busca un codi de barres a les dades locals (CSV carregat)
+ * Columna A (índex 0) = Codi de barres
+ * Columna B (índex 1) = PCS
+ * Columna C (índex 2) = Customer
+ */
+function searchBarcodeInLocalData(barcode) {
+    if (!sheetData || sheetData.length === 0) {
+        return { found: false, error: 'No hi ha dades carregades' };
+    }
+    
+    const normalizedBarcode = barcode.toString().trim().toLowerCase();
+    
+    // Buscar a partir de la fila 1 (índex 1, perquè la 0 és capçalera)
+    for (let i = 1; i < sheetData.length; i++) {
+        const row = sheetData[i];
+        if (!row[0]) continue;
+        
+        const cellValue = row[0].toString().trim();
+        const normalizedCell = cellValue.toLowerCase();
+        
+        // Coincidència exacta
+        if (normalizedCell === normalizedBarcode) {
+            return {
+                found: true,
+                barcode: cellValue,
+                pcs: row[1] ? row[1].toString().trim() : '',
+                customer: row[2] ? row[2].toString().trim() : '',
+                row: i + 1
+            };
+        }
+        
+        // Buscar si hi ha múltiples codis separats per coma
+        if (cellValue.includes(',')) {
+            const codigos = normalizedCell.split(',').map(c => c.trim());
+            if (codigos.includes(normalizedBarcode)) {
+                return {
+                    found: true,
+                    barcode: cellValue,
+                    pcs: row[1] ? row[1].toString().trim() : '',
+                    customer: row[2] ? row[2].toString().trim() : '',
+                    row: i + 1
+                };
+            }
+        }
+    }
+    
+    return { found: false };
+}
+
+async function submitExceso() {
+    const peso = document.getElementById('excesoPeso').value;
+    const largo = document.getElementById('excesoLargo').value;
+    const ancho = document.getElementById('excesoAncho').value;
+    const alto = document.getElementById('excesoAlto').value;
+    const statusEl = document.getElementById('excesoStatus');
+    
+    // Validar campos
+    if (!peso || !largo || !ancho || !alto) {
+        statusEl.textContent = '❌ Omple tots els camps';
+        statusEl.className = 'exceso-status error';
+        statusEl.style.display = 'block';
+        return;
+    }
+    
+    statusEl.textContent = '⏳ Afegint excés...';
+    statusEl.className = 'exceso-status loading';
+    statusEl.style.display = 'block';
+    
+    // Deshabilitar botón mientras se envía
+    document.getElementById('excesoSubmitBtn').disabled = true;
+    
+    try {
+        // Usar FormData per evitar problemes de CORS amb Google Apps Script
+        const formData = new URLSearchParams();
+        formData.append('action', 'addExceso');
+        formData.append('barcode', excesoData.barcode);
+        formData.append('pcs', excesoData.pcs);
+        formData.append('customer', excesoData.customer);
+        formData.append('tipo', excesoData.tipo);
+        formData.append('peso', peso);
+        formData.append('largo', largo);
+        formData.append('ancho', ancho);
+        formData.append('alto', alto);
+        
+        const response = await fetch(EXCESOS_API_URL, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const responseText = await response.text();
+        console.log('Resposta del servidor:', responseText);
+        
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('Error parsejant JSON:', parseError);
+            statusEl.textContent = `❌ Error: Resposta no vàlida del servidor`;
+            statusEl.className = 'exceso-status error';
+            document.getElementById('excesoSubmitBtn').disabled = false;
+            return;
+        }
+        
+        if (result.success) {
+            statusEl.textContent = `✅ ${result.message}`;
+            statusEl.className = 'exceso-status success';
+            
+            // Vibrar éxito
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100, 50, 200]);
+            }
+            
+            // Cerrar modal después de 2 segundos
+            setTimeout(() => {
+                closeExcesoModal();
+            }, 2000);
+        } else {
+            statusEl.textContent = `❌ ${result.error || 'Error desconegut'}`;
+            statusEl.className = 'exceso-status error';
+            document.getElementById('excesoSubmitBtn').disabled = false;
+        }
+    } catch (error) {
+        console.error('Error enviando exceso:', error);
+        statusEl.textContent = '❌ Error de connexió';
+        statusEl.className = 'exceso-status error';
+        document.getElementById('excesoSubmitBtn').disabled = false;
+    }
+}
+
+// Manejar Enter en el input de exceso
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        const excesoModal = document.getElementById('excesoModal');
+        if (excesoModal.style.display === 'flex') {
+            if (document.activeElement.id === 'excesoBarcode') {
+                e.preventDefault();
+                searchExcesoBarcode();
+            }
+        }
     }
 });
