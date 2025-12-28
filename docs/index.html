@@ -21,6 +21,7 @@
             <button id="torchBtn" onclick="toggleTorch()" disabled class="torch-btn"><span class="btn-icon">🔦</span><span class="btn-text"> Linterna</span></button>
             <button class="manual-btn" onclick="openManualInput()"><span class="btn-icon">⌨️</span><span class="btn-text"> Manual</span></button>
             <button class="exceso-btn" onclick="openExcesoModal()"><span class="btn-icon">📦</span><span class="btn-text"> Exceso</span></button>
+            <button class="delete-exceso-btn" onclick="openDeleteExcesoModal()"><span class="btn-icon">🗑️</span><span class="btn-text"> Esborrar</span></button>
             <button class="refresh-btn" onclick="loadSheetData()"><span class="btn-icon">🔄</span><span class="btn-text"> Recargar</span></button>
         </div>
 
@@ -122,6 +123,41 @@
                 <div class="modal-buttons">
                     <button onclick="closeExcesoModal()" class="cancel-btn">Cancel·lar</button>
                     <button id="excesoSubmitBtn" onclick="submitExceso()" class="submit-btn" disabled>Afegir Excés</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para Borrar Exceso -->
+        <div id="deleteExcesoModal" class="modal" style="display: none;">
+            <div class="modal-content modal-delete-exceso">
+                <h3>🗑️ Esborrar Excés</h3>
+                
+                <div class="modal-exceso-content">
+                    <p class="step-description">Escaneja o escriu el codi de barres de l'excés a esborrar</p>
+                    
+                    <div class="exceso-scanner-container">
+                        <div class="exceso-scanner-area">
+                            <div id="deleteExcesoScanner"></div>
+                            <button id="deleteExcesoScanBtn" onclick="startDeleteExcesoScanner()" class="scan-start-btn">
+                                📷
+                            </button>
+                            <button id="deleteExcesoStopBtn" onclick="stopDeleteExcesoScanner()" class="scan-stop-btn" style="display:none;">
+                                <span class="btn-icon">⏹️</span> Parar
+                            </button>
+                        </div>
+                        <div class="exceso-manual-input">
+                            <span class="input-divider">o</span>
+                            <input type="text" id="deleteExcesoBarcode" placeholder="Codi de barres" autocomplete="off">
+                            <button onclick="confirmDeleteExceso()" class="delete-search-btn">🔍</button>
+                        </div>
+                    </div>
+                    
+                    <div id="deleteExcesoStatus" class="exceso-status" style="display:none;"></div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button onclick="closeDeleteExcesoModal()" class="cancel-btn">Cancel·lar</button>
+                    <button id="deleteExcesoSubmitBtn" onclick="executeDeleteExceso()" class="delete-btn" disabled>Esborrar Excés</button>
                 </div>
             </div>
         </div>

@@ -926,5 +926,197 @@ document.addEventListener('keydown', (e) => {
                 searchExcesoBarcode();
             }
         }
+        const deleteExcesoModal = document.getElementById('deleteExcesoModal');
+        if (deleteExcesoModal.style.display === 'flex') {
+            if (document.activeElement.id === 'deleteExcesoBarcode') {
+                e.preventDefault();
+                confirmDeleteExceso();
+            }
+        }
+    }
+});
+
+// ========== FUNCIONALIDAD BORRAR EXCESO ==========
+
+let deleteExcesoHtml5QrCode = null;
+let deleteExcesoScanning = false;
+let deleteExcesoBarcode = '';
+
+function openDeleteExcesoModal() {
+    const modal = document.getElementById('deleteExcesoModal');
+    modal.style.display = 'flex';
+    resetDeleteExcesoForm();
+}
+
+function closeDeleteExcesoModal() {
+    const modal = document.getElementById('deleteExcesoModal');
+    modal.style.display = 'none';
+    stopDeleteExcesoScanner();
+    resetDeleteExcesoForm();
+}
+
+function resetDeleteExcesoForm() {
+    document.getElementById('deleteExcesoBarcode').value = '';
+    document.getElementById('deleteExcesoStatus').style.display = 'none';
+    document.getElementById('deleteExcesoSubmitBtn').disabled = true;
+    deleteExcesoBarcode = '';
+}
+
+async function startDeleteExcesoScanner() {
+    if (deleteExcesoScanning) return;
+    
+    document.getElementById('deleteExcesoScanBtn').style.display = 'none';
+    document.getElementById('deleteExcesoStopBtn').style.display = 'block';
+    
+    deleteExcesoHtml5QrCode = new Html5Qrcode("deleteExcesoScanner");
+    
+    const config = {
+        fps: 15,
+        aspectRatio: 2.0,
+        formatsToSupport: [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.CODABAR,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E
+        ]
+    };
+    
+    try {
+        await deleteExcesoHtml5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText) => {
+                const cleanCode = decodedText.replace(/[^0-9A-Za-z]/g, '');
+                document.getElementById('deleteExcesoBarcode').value = cleanCode;
+                stopDeleteExcesoScanner();
+                confirmDeleteExceso();
+            },
+            () => {} // Ignorar errores de escaneo
+        );
+        deleteExcesoScanning = true;
+    } catch (err) {
+        console.error('Error iniciando escáner borrar exceso:', err);
+        document.getElementById('deleteExcesoScanBtn').style.display = 'block';
+        document.getElementById('deleteExcesoStopBtn').style.display = 'none';
+    }
+}
+
+async function stopDeleteExcesoScanner() {
+    if (!deleteExcesoScanning || !deleteExcesoHtml5QrCode) return;
+    
+    try {
+        await deleteExcesoHtml5QrCode.stop();
+    } catch (e) {
+        console.log('Error parando escáner:', e);
+    }
+    
+    deleteExcesoScanning = false;
+    deleteExcesoHtml5QrCode = null;
+    
+    document.getElementById('deleteExcesoScanBtn').style.display = 'block';
+    document.getElementById('deleteExcesoStopBtn').style.display = 'none';
+}
+
+function confirmDeleteExceso() {
+    const barcode = document.getElementById('deleteExcesoBarcode').value.trim();
+    const statusEl = document.getElementById('deleteExcesoStatus');
+    
+    if (!barcode) {
+        statusEl.textContent = '❌ Introdueix un codi de barres';
+        statusEl.className = 'exceso-status error';
+        statusEl.style.display = 'block';
+        document.getElementById('deleteExcesoSubmitBtn').disabled = true;
+        return;
+    }
+    
+    deleteExcesoBarcode = barcode;
+    statusEl.textContent = `⚠️ S'esborrarà l'excés amb codi: ${barcode}`;
+    statusEl.className = 'exceso-status warning';
+    statusEl.style.display = 'block';
+    document.getElementById('deleteExcesoSubmitBtn').disabled = false;
+    
+    // Vibrar para feedback
+    if (navigator.vibrate) {
+        navigator.vibrate([100]);
+    }
+}
+
+async function executeDeleteExceso() {
+    if (!deleteExcesoBarcode) {
+        return;
+    }
+    
+    const statusEl = document.getElementById('deleteExcesoStatus');
+    const submitBtn = document.getElementById('deleteExcesoSubmitBtn');
+    
+    statusEl.textContent = '⏳ Esborrant excés...';
+    statusEl.className = 'exceso-status loading';
+    statusEl.style.display = 'block';
+    submitBtn.disabled = true;
+    
+    try {
+        const formData = new URLSearchParams();
+        formData.append('action', 'deleteExceso');
+        formData.append('barcode', deleteExcesoBarcode);
+        
+        const response = await fetch(EXCESOS_API_URL, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const responseText = await response.text();
+        console.log('Resposta del servidor (delete):', responseText);
+        
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('Error parsejant JSON:', parseError);
+            statusEl.textContent = '❌ Error: Resposta no vàlida del servidor';
+            statusEl.className = 'exceso-status error';
+            submitBtn.disabled = false;
+            return;
+        }
+        
+        if (result.success) {
+            statusEl.textContent = `✅ ${result.message}`;
+            statusEl.className = 'exceso-status success';
+            
+            // Vibrar éxito
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100, 50, 200]);
+            }
+            
+            // Cerrar modal después de 2 segundos
+            setTimeout(() => {
+                closeDeleteExcesoModal();
+            }, 2000);
+        } else {
+            statusEl.textContent = `❌ ${result.error || 'Error desconegut'}`;
+            statusEl.className = 'exceso-status error';
+            submitBtn.disabled = false;
+            
+            // Vibrar error
+            if (navigator.vibrate) {
+                navigator.vibrate([200, 100, 200]);
+            }
+        }
+    } catch (error) {
+        console.error('Error borrando exceso:', error);
+        statusEl.textContent = '❌ Error de connexió';
+        statusEl.className = 'exceso-status error';
+        submitBtn.disabled = false;
+    }
+}
+
+// Cerrar modal delete con clic fuera
+document.addEventListener('click', (e) => {
+    const deleteModal = document.getElementById('deleteExcesoModal');
+    if (e.target === deleteModal) {
+        closeDeleteExcesoModal();
     }
 });
