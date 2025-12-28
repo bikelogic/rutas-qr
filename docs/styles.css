@@ -413,6 +413,38 @@ button:active {
     #historyList {
         max-height: 180px;
     }
+    
+    /* Modal exceso adaptado a móvil */
+    .modal-exceso {
+        max-height: 90vh;
+        padding: 20px;
+    }
+    
+    .modal-exceso-content {
+        max-height: calc(90vh - 180px);
+    }
+    
+    .exceso-scanner-area {
+        min-height: 120px;
+    }
+    
+    #excesoScanner {
+        height: 120px;
+    }
+    
+    .form-row-3 {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .modal-buttons {
+        gap: 8px;
+    }
+    
+    .modal-buttons button {
+        padding: 12px;
+        font-size: 0.95rem;
+    }
 }
 
 /* ========== BOTÓN MANUAL ========== */
@@ -540,10 +572,38 @@ button:active {
 /* ========== MODAL EXCESO DE PESO/VOLUMEN ========== */
 .modal-exceso {
     max-width: 450px;
+    max-height: 85vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0;
 }
 
 .exceso-step {
     margin-bottom: 15px;
+}
+
+.modal-exceso > h3 {
+    flex-shrink: 0;
+    margin-bottom: 15px;
+}
+
+.modal-exceso-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 5px;
+}
+
+.modal-exceso .modal-buttons {
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    background: #1f2937;
+    padding: 15px 0 15px 0;
+    margin-top: 15px;
+    border-top: 1px solid #374151;
+    z-index: 10;
 }
 
 .step-description {
@@ -595,6 +655,18 @@ button:active {
 .scan-start-btn {
     background: #3b82f6;
     color: #fff;
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    padding: 0;
+    border-radius: 8px;
+    width: 60px;
+    height: 50px;
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }
 
 .scan-start-btn:hover {
@@ -690,6 +762,7 @@ button:active {
 .info-row {
     display: flex;
     justify-content: space-between;
+    gap: 15px;
     padding: 6px 0;
     border-bottom: 1px solid rgba(16, 185, 129, 0.2);
 }

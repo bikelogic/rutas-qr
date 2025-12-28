@@ -42,6 +42,7 @@
             <div class="modal-content modal-exceso">
                 <h3>📦 Excés de Pes/Volum</h3>
                 
+                <div class="modal-exceso-content">
                 <!-- Paso 1: Escanear código -->
                 <div id="excesoStep1" class="exceso-step">
                     <p class="step-description">Escaneja o escriu el codi de barres</p>
@@ -49,7 +50,7 @@
                         <div id="excesoScannerArea" class="exceso-scanner-area">
                             <div id="excesoScanner"></div>
                             <button id="excesoScanBtn" onclick="startExcesoScanner()" class="scan-start-btn">
-                                <span class="btn-icon">📷</span> Escanejar
+                                📷
                             </button>
                             <button id="excesoStopBtn" onclick="stopExcesoScanner()" class="scan-stop-btn" style="display:none;">
                                 <span class="btn-icon">⏹️</span> Parar
@@ -115,6 +116,8 @@
                 </div>
                 
                 <div id="excesoStatus" class="exceso-status" style="display:none;"></div>
+                
+                </div> <!-- Cierre de modal-exceso-content -->
                 
                 <div class="modal-buttons">
                     <button onclick="closeExcesoModal()" class="cancel-btn">Cancel·lar</button>
