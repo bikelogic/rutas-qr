@@ -24,6 +24,35 @@ let bufferResetTimer = null;
 // Cargar datos del Google Sheets al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     loadSheetData();
+    
+    // Configurar event listeners para los botones principales
+    document.getElementById('startBtn').addEventListener('click', startScanner);
+    document.getElementById('stopBtn').addEventListener('click', stopScanner);
+    document.getElementById('torchBtn').addEventListener('click', toggleTorch);
+    document.getElementById('manualBtn').addEventListener('click', openManualInput);
+    document.getElementById('excesoBtn').addEventListener('click', openExcesoModal);
+    document.getElementById('deleteExcesoBtn').addEventListener('click', openDeleteExcesoModal);
+    document.getElementById('refreshBtn').addEventListener('click', loadSheetData);
+    
+    // Event listeners para modal manual
+    document.getElementById('manualCancelBtn').addEventListener('click', closeManualInput);
+    document.getElementById('manualSubmitBtn').addEventListener('click', submitManualCode);
+    
+    // Event listeners para modal de exceso
+    document.getElementById('excesoCancelBtn').addEventListener('click', closeExcesoModal);
+    document.getElementById('excesoSubmitBtn').addEventListener('click', submitExceso);
+    document.getElementById('excesoScanBtn').addEventListener('click', startExcesoScanner);
+    document.getElementById('excesoStopBtn').addEventListener('click', stopExcesoScanner);
+    document.getElementById('excesoSearchBtn').addEventListener('click', searchExcesoBarcode);
+    document.getElementById('btnDelivery').addEventListener('click', () => selectTipo('DELIVERY'));
+    document.getElementById('btnBooking').addEventListener('click', () => selectTipo('BOOKING'));
+    
+    // Event listeners para modal de borrar exceso
+    document.getElementById('deleteExcesoCancelBtn').addEventListener('click', closeDeleteExcesoModal);
+    document.getElementById('deleteExcesoSubmitBtn').addEventListener('click', executeDeleteExceso);
+    document.getElementById('deleteExcesoScanBtn').addEventListener('click', startDeleteExcesoScanner);
+    document.getElementById('deleteExcesoStopBtn').addEventListener('click', stopDeleteExcesoScanner);
+    document.getElementById('deleteExcesoSearchBtn').addEventListener('click', confirmDeleteExceso);
 });
 
 async function loadSheetData() {
@@ -380,17 +409,19 @@ function onScanSuccess(decodedText, decodedResult) {
     // Limpiar código
     const cleanCode = decodedText.replace(/[^0-9A-Za-z]/g, '');
     
-    // SIEMPRE aceptar códigos de exactamente 10 dígitos numéricos
+    // Solo aceptar códigos de exactamente 10 dígitos numéricos
     const is10Digits = /^\d{10}$/.test(cleanCode);
     
-    console.log(`Detectado: ${cleanCode} (${cleanCode.length} chars, 10 dígitos: ${is10Digits})`);
-    
-    // Para códigos de 10 dígitos, procesarlos directamente con menos validación
-    if (is10Digits) {
-        addToCodeBuffer(cleanCode, true);
-    } else if (cleanCode.length >= 6 && cleanCode.length <= 15) {
-        addToCodeBuffer(cleanCode, false);
+    if (!is10Digits) {
+        // Ignorar códigos que no sean exactamente 10 dígitos
+        console.log(`Código ignorado: ${cleanCode} (longitud: ${cleanCode.length}, debe ser 10 dígitos)`);
+        return;
     }
+    
+    console.log(`Detectado: ${cleanCode} (${cleanCode.length} chars, válido)`);
+    
+    // Procesar código válido de 10 dígitos
+    addToCodeBuffer(cleanCode, true);
 }
 
 function onScanFailure(error) {
@@ -578,6 +609,17 @@ function submitManualCode() {
         return;
     }
     
+    // Validar longitud 10
+    if (code.length !== 10 || !/^\d{10}$/.test(code)) {
+        input.style.borderColor = '#ef4444';
+        input.placeholder = 'El código debe tener 10 dígitos';
+        setTimeout(() => {
+            input.style.borderColor = '';
+            input.placeholder = 'Ej: 1234567890';
+        }, 2000);
+        return;
+    }
+    
     // Cerrar modal
     closeManualInput();
     
@@ -643,6 +685,12 @@ function resetExcesoForm() {
     document.getElementById('excesoAncho').value = '';
     document.getElementById('excesoAlto').value = '';
     
+    // Reset campos manuales
+    document.getElementById('excesoManualPcs').value = '';
+    document.getElementById('excesoManualCustomer').value = '';
+    document.getElementById('excesoManualFields').style.display = 'none';
+    document.querySelector('.exceso-info-found').style.display = 'block';
+    
     // Reset tipo
     selectTipo('DELIVERY');
     
@@ -705,9 +753,12 @@ async function startExcesoScanner() {
             config,
             (decodedText) => {
                 const cleanCode = decodedText.replace(/[^0-9A-Za-z]/g, '');
-                document.getElementById('excesoBarcode').value = cleanCode;
-                stopExcesoScanner();
-                searchExcesoBarcode();
+                // Validar que sea exactamente 10 dígitos
+                if (/^\d{10}$/.test(cleanCode)) {
+                    document.getElementById('excesoBarcode').value = cleanCode;
+                    stopExcesoScanner();
+                    searchExcesoBarcode();
+                }
             },
             () => {} // Ignorar errores de escaneo
         );
@@ -746,6 +797,19 @@ async function searchExcesoBarcode() {
         return;
     }
     
+    // Validar longitud 10
+    if (barcode.length !== 10 || !/^\d{10}$/.test(barcode)) {
+        resultEl.textContent = '❌ El codi ha de tenir 10 dígits';
+        resultEl.className = 'barcode-result error';
+        resultEl.style.display = 'block';
+        
+        // Vibrar error
+        if (navigator.vibrate) {
+            navigator.vibrate([200, 100, 200]);
+        }
+        return;
+    }
+    
     resultEl.textContent = '⏳ Buscant...';
     resultEl.className = 'barcode-result loading';
     resultEl.style.display = 'block';
@@ -762,10 +826,15 @@ async function searchExcesoBarcode() {
         resultEl.textContent = '✅ Codi trobat!';
         resultEl.className = 'barcode-result success';
         
-        // Mostrar pas 2
+        // Mostrar pas 2 amb dades trobades
         document.getElementById('excesoFoundCode').textContent = result.barcode;
         document.getElementById('excesoFoundPcs').textContent = result.pcs || '-';
         document.getElementById('excesoFoundCustomer').textContent = result.customer || '-';
+        
+        // Ocultar camps manuals i mostrar info trobada
+        document.getElementById('excesoManualFields').style.display = 'none';
+        document.querySelector('.exceso-info-found').style.display = 'block';
+        
         document.getElementById('excesoStep2').style.display = 'block';
         document.getElementById('excesoSubmitBtn').disabled = false;
         
@@ -774,12 +843,27 @@ async function searchExcesoBarcode() {
             navigator.vibrate([100, 50, 100]);
         }
     } else {
-        resultEl.textContent = '❌ Codi no trobat a les dades carregades';
-        resultEl.className = 'barcode-result error';
-        document.getElementById('excesoStep2').style.display = 'none';
-        document.getElementById('excesoSubmitBtn').disabled = true;
+        // Codi NO trobat - permetre entrada manual
+        excesoData.barcode = barcode;
+        excesoData.pcs = '';  // Es omplirà manualment
+        excesoData.customer = '';  // Es omplirà manualment
         
-        // Vibrar error
+        resultEl.textContent = '⚠️ Codi no trobat - Introdueix dades manualment';
+        resultEl.className = 'barcode-result warning';
+        
+        // Mostrar camps manuals i ocultar info trobada
+        document.getElementById('excesoFoundCode').textContent = barcode;
+        document.querySelector('.exceso-info-found').style.display = 'none';
+        document.getElementById('excesoManualFields').style.display = 'block';
+        
+        // Netejar camps manuals
+        document.getElementById('excesoManualPcs').value = '';
+        document.getElementById('excesoManualCustomer').value = '';
+        
+        document.getElementById('excesoStep2').style.display = 'block';
+        document.getElementById('excesoSubmitBtn').disabled = false;
+        
+        // Vibrar advertència
         if (navigator.vibrate) {
             navigator.vibrate([200, 100, 200]);
         }
@@ -843,7 +927,25 @@ async function submitExceso() {
     const alto = document.getElementById('excesoAlto').value;
     const statusEl = document.getElementById('excesoStatus');
     
-    // Validar campos
+    // Si los campos manuales están visibles, validarlos y usarlos
+    const manualFieldsVisible = document.getElementById('excesoManualFields').style.display !== 'none';
+    if (manualFieldsVisible) {
+        const manualPcs = document.getElementById('excesoManualPcs').value.trim();
+        const manualCustomer = document.getElementById('excesoManualCustomer').value.trim();
+        
+        if (!manualPcs || !manualCustomer) {
+            statusEl.textContent = '❌ Omple PCS i Customer';
+            statusEl.className = 'exceso-status error';
+            statusEl.style.display = 'block';
+            return;
+        }
+        
+        // Actualizar excesoData con los valores manuales
+        excesoData.pcs = manualPcs;
+        excesoData.customer = manualCustomer;
+    }
+    
+    // Validar campos de peso y dimensiones
     if (!peso || !largo || !ancho || !alto) {
         statusEl.textContent = '❌ Omple tots els camps';
         statusEl.className = 'exceso-status error';
@@ -991,9 +1093,12 @@ async function startDeleteExcesoScanner() {
             config,
             (decodedText) => {
                 const cleanCode = decodedText.replace(/[^0-9A-Za-z]/g, '');
-                document.getElementById('deleteExcesoBarcode').value = cleanCode;
-                stopDeleteExcesoScanner();
-                confirmDeleteExceso();
+                // Validar que sea exactamente 10 dígitos
+                if (/^\d{10}$/.test(cleanCode)) {
+                    document.getElementById('deleteExcesoBarcode').value = cleanCode;
+                    stopDeleteExcesoScanner();
+                    confirmDeleteExceso();
+                }
             },
             () => {} // Ignorar errores de escaneo
         );
@@ -1030,6 +1135,20 @@ function confirmDeleteExceso() {
         statusEl.className = 'exceso-status error';
         statusEl.style.display = 'block';
         document.getElementById('deleteExcesoSubmitBtn').disabled = true;
+        return;
+    }
+    
+    // Validar longitud 10
+    if (barcode.length !== 10 || !/^\d{10}$/.test(barcode)) {
+        statusEl.textContent = '❌ El codi ha de tenir 10 dígits';
+        statusEl.className = 'exceso-status error';
+        statusEl.style.display = 'block';
+        document.getElementById('deleteExcesoSubmitBtn').disabled = true;
+        
+        // Vibrar error
+        if (navigator.vibrate) {
+            navigator.vibrate([200, 100, 200]);
+        }
         return;
     }
     

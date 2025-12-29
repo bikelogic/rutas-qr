@@ -62,11 +62,11 @@ def separar_por_zonas(geocoded_addresses):
             zonas['Indust'].append((coords, address, codigos_barras))
         elif zona == 'Centre':
             zonas['Centre'].append((coords, address, codigos_barras))
-        elif zona == 'sin_zona':
-            zonas['sin_zona'].append((coords, address, codigos_barras))
-        else:
-            # MiraEst, Mira -> Mirasol
+        elif zona == 'Mirasol':
             zonas['Mirasol'].append((coords, address, codigos_barras))
+        else:
+            # sin_zona
+            zonas['sin_zona'].append((coords, address, codigos_barras))
     
     return zonas
 

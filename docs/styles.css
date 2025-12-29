@@ -784,6 +784,38 @@ button:active {
     font-size: 0.95rem;
 }
 
+/* Campos manuales para códigos no encontrados */
+.exceso-manual-fields {
+    background: #422006;
+    border: 1px solid #f59e0b;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.exceso-manual-fields .form-group {
+    margin-bottom: 10px;
+}
+
+.exceso-manual-fields .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.exceso-manual-fields input {
+    background: #1f2937;
+    border-color: #f59e0b;
+}
+
+.exceso-manual-fields input:focus {
+    border-color: #fbbf24;
+}
+
+.barcode-result.warning {
+    background: #422006;
+    color: #fbbf24;
+    border: 1px solid #f59e0b;
+}
+
 .exceso-form {
     display: flex;
     flex-direction: column;
