@@ -1,11 +1,10 @@
+const RUNTIME_CFG = window.BIKELOGIC_CONFIG || {};
+
 // URL pública del Google Sheet en formato CSV (per mostrar les direccions ordenades)
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSMUbPSH39x9bMdABa6O-S0up-GSRvZ7XmOJaxKhFgDhTYoLY-W4MIGuZyqWbLPQbZ7m6vB8VoHNLxq/pub?gid=0&single=true&output=csv';
+const SHEET_CSV_URL = (RUNTIME_CFG.SHEET_CSV_URL || '').trim();
 
 // ========== CONFIGURACIÓ API EXCESOS ==========
-// URL de l'API de Google Apps Script (l'única cosa visible aquí)
-// Els IDs dels spreadsheets estan DINS l'script de Google, no aquí
-// Després de desplegar l'script, posa la URL aquí
-const EXCESOS_API_URL = 'https://script.google.com/macros/s/AKfycbzj8lnGkIDhABzlW3MSEcVSj88U-tUhZDQq8_eNPFG3Aklkmj0Rz4doeCqXZ1XgzmnK/exec';
+const EXCESOS_API_URL = (RUNTIME_CFG.EXCESOS_API_URL || '').trim();
 
 let sheetData = [];
 let isScanning = false;
@@ -57,6 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadSheetData() {
     const statusEl = document.getElementById('status');
+
+    if (!SHEET_CSV_URL) {
+        statusEl.textContent = '❌ Falta configurar SHEET_CSV_URL a docs/runtime-config.js';
+        statusEl.className = 'status error';
+        return;
+    }
+
     statusEl.textContent = '⏳ Cargando datos de Google Sheets...';
     statusEl.className = 'status loading';
 
@@ -956,6 +962,12 @@ async function submitExceso() {
     statusEl.textContent = '⏳ Afegint excés...';
     statusEl.className = 'exceso-status loading';
     statusEl.style.display = 'block';
+
+    if (!EXCESOS_API_URL) {
+        statusEl.textContent = '❌ Falta EXCESOS_API_URL a docs/runtime-config.js';
+        statusEl.className = 'exceso-status error';
+        return;
+    }
     
     // Deshabilitar botón mientras se envía
     document.getElementById('excesoSubmitBtn').disabled = true;
@@ -1176,6 +1188,13 @@ async function executeDeleteExceso() {
     statusEl.className = 'exceso-status loading';
     statusEl.style.display = 'block';
     submitBtn.disabled = true;
+
+    if (!EXCESOS_API_URL) {
+        statusEl.textContent = '❌ Falta EXCESOS_API_URL a docs/runtime-config.js';
+        statusEl.className = 'exceso-status error';
+        submitBtn.disabled = false;
+        return;
+    }
     
     try {
         const formData = new URLSearchParams();

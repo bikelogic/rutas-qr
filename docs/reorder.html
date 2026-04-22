@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BikeLogic – Reordena Rutes</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        header h1 span { opacity: 0.5; font-weight: 400; font-size: 0.95rem; }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn:disabled { opacity: 0.4; cursor: default; }
+
+        .btn-primary   { background: #6366f1; color: #fff; }
+        .btn-success   { background: #10b981; color: #fff; }
+        .btn-secondary { background: #334155; color: #e2e8f0; }
+        .btn-warn      { background: #f59e0b; color: #000; }
+        .btn-danger    { background: #7f1d1d; color: #fff; }
+
+        #status-bar {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 10px 16px;
+            margin-bottom: 20px;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #status-bar.loading { border-color: #6366f1; }
+        #status-bar.success { border-color: #10b981; }
+        #status-bar.error   { border-color: #ef4444; }
+
+        /* COLUMNS LAYOUT */
+        #board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            #board { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            #board { grid-template-columns: 1fr; }
+        }
+
+        .zone-col {
+            background: #1e293b;
+            border-radius: 12px;
+            border: 2px solid #334155;
+            overflow: hidden;
+        }
+
+        .zone-header {
+            padding: 12px 14px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .zone-count {
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.12);
+            border-radius: 12px;
+            padding: 2px 8px;
+        }
+
+        .sortable-list {
+            padding: 8px;
+            min-height: 60px;
+        }
+
+        /* ITEM CARD */
+        .item-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 6px;
+            cursor: grab;
+            user-select: none;
+            transition: box-shadow 0.15s, border-color 0.15s;
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .item-card:hover {
+            border-color: #64748b;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .item-card.sortable-chosen {
+            cursor: grabbing;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            border-color: #6366f1;
+            z-index: 100;
+        }
+        .item-card.sortable-ghost {
+            opacity: 0.3;
+        }
+
+        .item-order-number {
+            font-size: 2.2rem;
+            font-weight: 900;
+            min-width: 50px;
+            text-align: center;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .item-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .item-delete-btn {
+            border: none;
+            background: #7f1d1d;
+            color: #fecaca;
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .item-delete-btn:hover {
+            background: #991b1b;
+        }
+
+        .item-pos {
+            font-size: 0.7rem;
+            opacity: 0.4;
+            display: none;
+            font-weight: 600;
+        }
+
+        .item-address {
+            font-size: 0.82rem;
+            font-weight: 600;
+            line-height: 1.3;
+            word-break: break-word;
+        }
+
+        .barcode-item {
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+
+        .barcode-item:hover {
+            opacity: 0.8;
+        }
+
+        .barcode-gallery {
+            display: none;
+        }
+
+        .barcode-gallery.visible {
+            display: block;
+        }
+
+        .barcode-empty {
+            font-size: 0.72rem;
+            color: #64748b;
+            border: 1px dashed #334155;
+            border-radius: 6px;
+            padding: 6px;
+            text-align: center;
+        }
+
+        .item-barcode-wrap {
+            background: #fff;
+            border-radius: 4px;
+            padding: 4px 6px 2px;
+            text-align: center;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .item-barcode-wrap svg {
+            max-width: 100%;
+            height: 34px !important;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .item-code-text {
+            font-size: 0.65rem;
+            color: #000;
+            font-family: monospace;
+            margin-top: 1px;
+            text-align: center;
+        }
+
+        /* BARCODE MODAL */
+        .barcode-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .barcode-modal-overlay.visible {
+            display: flex;
+        }
+
+        .barcode-modal-content {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 600px;
+            text-align: center;
+            position: relative;
+        }
+
+        .barcode-modal-content h3 {
+            margin-bottom: 15px;
+            color: #e2e8f0;
+        }
+
+        .barcode-modal-content svg {
+            max-width: 100%;
+            height: auto;
+            margin: 10px 0;
+        }
+
+        .barcode-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #334155;
+            border: none;
+            color: #e2e8f0;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .barcode-modal-close:hover {
+            background: #475569;
+        }
+
+        /* Drag handle hint */
+        .item-card::before {
+            content: '⠿';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 0.9rem;
+            opacity: 0.2;
+            pointer-events: none;
+        }
+
+        /* Empty zone placeholder */
+        .empty-placeholder {
+            text-align: center;
+            padding: 20px 10px;
+            color: #475569;
+            font-size: 0.8rem;
+            border: 2px dashed #334155;
+            border-radius: 8px;
+            margin: 4px;
+        }
+
+        .add-row-wrap {
+            padding: 0 8px 8px;
+        }
+
+        .add-row-btn {
+            width: 100%;
+            border: 1px dashed #475569;
+            background: #0f172a;
+            color: #94a3b8;
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .add-row-btn:hover {
+            border-color: #64748b;
+            color: #cbd5e1;
+        }
+
+        /* MODAL */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 999;
+            padding: 20px;
+        }
+        .modal-box {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 24px;
+            max-width: 500px;
+            width: 100%;
+        }
+        .modal-box h3 { margin-bottom: 12px; font-size: 1.1rem; }
+        .modal-box p  { font-size: 0.875rem; color: #94a3b8; margin-bottom: 16px; line-height: 1.6; }
+        .modal-box textarea {
+            width: 100%;
+            height: 180px;
+            background: #0f172a;
+            color: #e2e8f0;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            resize: vertical;
+            margin-bottom: 14px;
+        }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+        /* Save indicator */
+        #save-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            z-index: 9999;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        #save-indicator.saving {
+            background: #1e40af;
+            color: #bfdbfe;
+            opacity: 1;
+        }
+        #save-indicator.saved {
+            background: #065f46;
+            color: #a7f3d0;
+            opacity: 1;
+        }
+        #save-indicator.save-error {
+            background: #7f1d1d;
+            color: #fca5a5;
+            opacity: 1;
+        }
+        #save-indicator.hidden { opacity: 0; }
+
+        /* Loading skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, #1e293b 25%, #2d3f55 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+            border-radius: 6px;
+            height: 70px;
+            margin-bottom: 6px;
+        }
+        @keyframes shimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🚴 BikeLogic <span>— Reordena Rutes</span></h1>
+    <div class="header-actions">
+        <button class="btn btn-warn"      id="apiConfigBtn">⚙️ API</button>
+        <button class="btn btn-secondary" id="reloadBtn">🔄 Recarregar</button>
+        <button class="btn btn-success"   id="exportBtn" disabled>⬇️ Exportar CSV</button>
+        <button class="btn btn-primary"   id="copyBtn"   disabled>📋 Copiar al porta-retalls</button>
+    </div>
+</header>
+
+<div id="status-bar" class="loading">
+    <span id="status-icon">⏳</span>
+    <span id="status-text">Carregant dades de Google Sheets…</span>
+</div>
+
+<div id="board">
+    <!-- Columns generated by JS -->
+</div>
+
+<!-- Barcode Modal -->
+<div class="barcode-modal-overlay" id="barcodeModal">
+    <div class="barcode-modal-content">
+        <button class="barcode-modal-close" id="closeBarcodeBtn">✕</button>
+        <h3 id="barcodeModalTitle">Codi de Barres</h3>
+        <div id="barcodeModalBody"></div>
+    </div>
+</div>
+
+<div id="save-indicator" class="hidden">⏳ Guardant…</div>
+
+<div class="modal-overlay" id="apiModal" style="display:none;">
+    <div class="modal-box">
+        <h3>⚙️ Configurar API</h3>
+        <p>Enganxa aquí la URL del desplegament web del Google Apps Script del full que vols reordenar. Es guardarà en aquest navegador.</p>
+        <textarea id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="height:110px;"></textarea>
+        <div class="modal-actions">
+            <button class="btn btn-danger" id="clearApiBtn">Esborrar</button>
+            <button class="btn btn-secondary" id="closeApiBtn">Tancar</button>
+            <button class="btn btn-primary" id="saveApiBtn">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Export modal -->
+<div class="modal-overlay" id="exportModal" style="display:none;">
+    <div class="modal-box">
+        <h3>⬇️ Exportar CSV</h3>
+        <p>El CSV conté les 4 zones en el nou ordre. Cada fila té:<br>
+           <strong>Adreça Fàbriques, CB Fàbriques, Adreça Centre, CB Centre, Adreça Mirasol, CB Mirasol, Adreça Altres, CB Altres</strong><br>
+           Pots enganxar-lo al Google Sheets o descarregar-lo.</p>
+        <textarea id="csvOutput" readonly></textarea>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="closeExportBtn">Tancar</button>
+            <button class="btn btn-warn"      id="downloadCsvBtn">⬇️ Descarregar fitxer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="deleteConfirmModal" style="display:none;">
+    <div class="modal-box">
+        <h3>⚠️ Confirma la supressió</h3>
+        <p id="deleteConfirmMessage"></p>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="deleteCancelBtn">Cancelar</button>
+            <button class="btn btn-danger" id="deleteConfirmBtn">🗑️ Esborrar</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="runtime-config.js"></script>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+const RUNTIME_CFG = window.BIKELOGIC_CONFIG || {};
+const SHEET_CSV_URL = (RUNTIME_CFG.REORDER_SHEET_CSV_URL || '').trim();
+const DEFAULT_API_URL = (RUNTIME_CFG.REORDER_API_URL || '').trim();
+const API_URL_STORAGE_KEY = 'bikelogic-reorder-api-url';
+
+const ZONES = [
+    { id: 'fabriques', name: 'Fàbriques', color: '#6366f1', addrCol: 6,  codeCol: 7  },
+    { id: 'centre',    name: 'Centre',    color: '#f59e0b', addrCol: 9,  codeCol: 10 },
+    { id: 'mirasol',   name: 'Mirasol',   color: '#10b981', addrCol: 12, codeCol: 13 },
+    { id: 'altres',    name: 'Altres',    color: '#ef4444', addrCol: 15, codeCol: 16 },
+];
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+// zoneItems[zoneId] = [{addr, code, origRow}]
+let zoneItems = {};
+
+function getApiUrl() {
+    return localStorage.getItem(API_URL_STORAGE_KEY)?.trim() || DEFAULT_API_URL;
+}
+
+// ─── HELPERS ───────────────────────────────────────────────────────────────
+function parseCSV(text) {
+    const lines = text.split('\n');
+    return lines.map(line => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const c = line[i];
+            if (c === '"') { inQuotes = !inQuotes; }
+            else if (c === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+            else { current += c; }
+        }
+        result.push(current.trim());
+        return result;
+    }).filter(r => r.length > 1);
+}
+
+function setStatus(icon, text, type) {
+    document.getElementById('status-icon').textContent = icon;
+    document.getElementById('status-text').textContent  = text;
+    const bar = document.getElementById('status-bar');
+    bar.className = type || '';
+}
+
+function refreshApiStatusHint() {
+    const savedApiUrl = localStorage.getItem(API_URL_STORAGE_KEY)?.trim();
+    const apiUrl = getApiUrl();
+    const button = document.getElementById('apiConfigBtn');
+    button.textContent = apiUrl ? (savedApiUrl ? '⚙️ API personalitzada' : '⚙️ API OK') : '⚙️ Configurar API';
+}
+
+// Render a barcode SVG inline; returns empty string on failure
+function renderBarcode(code) {
+    if (!code) return '';
+    // Take first code if comma-separated
+    const raw = code.trim();
+    if (!raw) return '';
+    try {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        JsBarcode(svg, raw, {
+            format: 'CODE128',
+            displayValue: false,
+            margin: 0,
+            width: 1.2,
+            height: 34,
+            background: '#ffffff',
+            lineColor: '#000000',
+        });
+        return { svg, text: raw };
+    } catch(e) {
+        return { svg: null, text: raw };
+    }
+}
+
+// ─── BUILD UI ──────────────────────────────────────────────────────────────
+function buildBoard() {
+    const board = document.getElementById('board');
+    board.innerHTML = '';
+
+    ZONES.forEach(zone => {
+        const col = document.createElement('div');
+        col.className = 'zone-col';
+        col.dataset.zoneId = zone.id;
+
+        const header = document.createElement('div');
+        header.className = 'zone-header';
+        header.style.background  = zone.color + '22';
+        header.style.borderBottom = `2px solid ${zone.color}44`;
+        header.innerHTML = `
+            <span style="color:${zone.color}">${zone.name}</span>
+            <span class="zone-count" id="count-${zone.id}" style="color:${zone.color}">0</span>
+        `;
+
+        const list = document.createElement('div');
+        list.className = 'sortable-list';
+        list.id = `list-${zone.id}`;
+
+        const addWrap = document.createElement('div');
+        addWrap.className = 'add-row-wrap';
+        addWrap.innerHTML = `<button class="add-row-btn" data-zone-id="${zone.id}">+ Afegir adreca</button>`;
+
+        col.appendChild(header);
+        col.appendChild(list);
+        col.appendChild(addWrap);
+        board.appendChild(col);
+    });
+}
+
+function parseBarcodeCodes(codeRaw) {
+    if (!codeRaw) return [];
+    return codeRaw
+        .split(',')
+        .map(c => c.trim())
+        .filter(Boolean);
+}
+
+function renderItems() {
+    ZONES.forEach(zone => {
+        const list  = document.getElementById(`list-${zone.id}`);
+        const count = document.getElementById(`count-${zone.id}`);
+        const items = zoneItems[zone.id] || [];
+        count.textContent = items.length;
+
+        list.innerHTML = '';
+
+        if (items.length === 0) {
+            list.innerHTML = '<div class="empty-placeholder">Cap element</div>';
+            return;
+        }
+
+        items.forEach((item, idx) => {
+            const card = document.createElement('div');
+            card.className = 'item-card';
+            card.dataset.zoneId = zone.id;
+            card.dataset.addr = item.addr;
+            card.dataset.code = item.code;
+            card.dataset.origRow = item.origRow;
+            card.dataset.showCodes = item.showCodes ? '1' : '0';
+            
+            // Order number - left side
+            const orderEl = document.createElement('div');
+            orderEl.className = 'item-order-number';
+            orderEl.textContent = idx + 1;
+            orderEl.style.color = zone.color;
+            card.appendChild(orderEl);
+            
+            // Content wrapper
+            const contentEl = document.createElement('div');
+            contentEl.className = 'item-content';
+            
+            // Header with address and delete button
+            const headerEl = document.createElement('div');
+            headerEl.className = 'item-header';
+            
+            const addrEl = document.createElement('div');
+            addrEl.className = 'item-address';
+            addrEl.textContent = item.addr || '(sense adreça)';
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'item-delete-btn';
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                showDeleteConfirmModal(item.addr, card);
+            });
+            
+            headerEl.appendChild(addrEl);
+            headerEl.appendChild(deleteBtn);
+            contentEl.appendChild(headerEl);
+            
+            // Barcode gallery
+            const gallery = document.createElement('div');
+            gallery.className = 'barcode-gallery';
+            if (item.showCodes) {
+                gallery.classList.add('visible');
+            }
+
+            const codes = parseBarcodeCodes(item.code || '');
+            if (codes.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'barcode-empty';
+                empty.textContent = 'Sense codi de barres';
+                gallery.appendChild(empty);
+            } else {
+                codes.forEach(code => {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'item-barcode-wrap barcode-item';
+                    wrap.style.cursor = 'pointer';
+                    
+                    const bc = renderBarcode(code);
+                    if (bc && bc.svg) {
+                        wrap.appendChild(bc.svg);
+                    }
+                    
+                    const codeText = document.createElement('div');
+                    codeText.className = 'item-code-text';
+                    codeText.textContent = code;
+                    wrap.appendChild(codeText);
+                    
+                    // Click to enlarge
+                    wrap.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        showBarcodeModal(code, item.addr);
+                    });
+                    
+                    gallery.appendChild(wrap);
+                });
+            }
+
+            card.addEventListener('dblclick', function() {
+                gallery.classList.toggle('visible');
+                card.dataset.showCodes = gallery.classList.contains('visible') ? '1' : '0';
+            });
+
+            contentEl.appendChild(gallery);
+            card.appendChild(contentEl);
+            list.appendChild(card);
+        });
+    });
+
+    document.querySelectorAll('.add-row-btn').forEach(btn => {
+        btn.onclick = function() {
+            addAddressToZone(btn.dataset.zoneId);
+        };
+    });
+}
+
+function addAddressToZone(zoneId) {
+    const address = prompt('Introdueix la nova adreca:');
+    if (address === null) return;
+
+    const cleanAddress = address.trim();
+    if (!cleanAddress) {
+        alert('L\'adreca no pot estar buida.');
+        return;
+    }
+
+    const code = prompt('Introdueix el codi de barres (pots posar-ne varios separats per coma):', '') || '';
+    const list = document.getElementById(`list-${zoneId}`);
+    if (!list) return;
+
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.dataset.zoneId = zoneId;
+    card.dataset.addr = cleanAddress;
+    card.dataset.code = code.trim();
+    card.dataset.origRow = 'nou';
+    card.dataset.showCodes = '0';
+
+    list.appendChild(card);
+    syncStateFromDOM();
+    renderItems();
+    scheduleSave();
+}
+
+function initSortable() {
+    ZONES.forEach(zone => {
+        const list = document.getElementById(`list-${zone.id}`);
+        Sortable.create(list, {
+            group:     'rutes',          // shared group = drag between columns
+            animation: 150,
+            handle:    '.item-card',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass:  'sortable-drag',
+            onEnd() { syncStateFromDOM(); scheduleSave(); }
+        });
+    });
+}
+
+// After any drag, re-read the DOM to update zoneItems
+function syncStateFromDOM() {
+    ZONES.forEach(zone => {
+        const list  = document.getElementById(`list-${zone.id}`);
+        const count = document.getElementById(`count-${zone.id}`);
+        const cards = list.querySelectorAll('.item-card');
+        zoneItems[zone.id] = Array.from(cards).map((card, idx) => {
+            // Update zone ID and order number
+            card.dataset.zoneId = zone.id;
+            const orderEl = card.querySelector('.item-order-number');
+            if (orderEl) {
+                orderEl.textContent = idx + 1;
+                orderEl.style.color = zone.color;
+            }
+            // Update position label (hidden)
+            const posEl = card.querySelector('.item-pos');
+            if (posEl) posEl.textContent = `#${idx + 1}  ·  fila ${card.dataset.origRow}`;
+            return {
+                addr:    card.dataset.addr,
+                code:    card.dataset.code,
+                origRow: card.dataset.origRow,
+                showCodes: card.dataset.showCodes === '1',
+            };
+        });
+        count.textContent = zoneItems[zone.id].length;
+    });
+}
+
+// ─── SAVE TO SHEET ─────────────────────────────────────────────────────────
+let saveTimer = null;
+
+function scheduleSave() {
+    clearTimeout(saveTimer);
+    showSaveIndicator('saving', '⏳ Guardant al Drive…');
+    saveTimer = setTimeout(saveToSheet, 800); // debounce 800ms after last drag
+}
+
+function showSaveIndicator(cls, text) {
+    const el = document.getElementById('save-indicator');
+    el.className = cls;
+    el.textContent = text;
+    if (cls === 'saved' || cls === 'save-error') {
+        setTimeout(() => { el.className = 'hidden'; }, 3000);
+    }
+}
+
+async function saveToSheet() {
+    syncStateFromDOM();
+    const apiUrl = getApiUrl();
+    if (!apiUrl) {
+        showSaveIndicator('save-error', '❌ Configura la URL de l\'API');
+        return;
+    }
+
+    const payload = {
+        action: 'reorder',
+        zones: {
+            fabriques: zoneItems['fabriques'],
+            centre:    zoneItems['centre'],
+            mirasol:   zoneItems['mirasol'],
+            altres:    zoneItems['altres'],
+        }
+    };
+
+    try {
+        await fetch(apiUrl, {
+            method:  'POST',
+            headers: { 'Content-Type': 'text/plain' }, // Apps Script requires text/plain for JSON body
+            mode: 'no-cors',
+            body:    JSON.stringify(payload),
+        });
+        showSaveIndicator('saved', '✅ Enviat al Drive');
+    } catch (err) {
+        console.error('Save error:', err);
+        showSaveIndicator('save-error', '❌ Error de connexió');
+    }
+}
+
+// ─── DATA LOAD ─────────────────────────────────────────────────────────────
+async function loadData() {
+    setStatus('⏳', 'Carregant dades de Google Sheets…', 'loading');
+    document.getElementById('exportBtn').disabled = true;
+    document.getElementById('copyBtn').disabled   = true;
+
+    if (!SHEET_CSV_URL) {
+        setStatus('❌', 'Falta REORDER_SHEET_CSV_URL a docs/runtime-config.js', 'error');
+        return;
+    }
+
+    // Show skeletons
+    buildBoard();
+    ZONES.forEach(zone => {
+        const list = document.getElementById(`list-${zone.id}`);
+        list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+    });
+
+    try {
+        const resp = await fetch(SHEET_CSV_URL);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const csv = await resp.text();
+        const rows = parseCSV(csv);
+
+        // Skip header row (row 0)
+        zoneItems = {};
+        ZONES.forEach(z => { zoneItems[z.id] = []; });
+
+        rows.forEach((row, idx) => {
+            if (idx === 0) return; // header
+            ZONES.forEach(zone => {
+                const addr = (row[zone.addrCol] || '').trim();
+                const code = (row[zone.codeCol] || '').trim();
+                if (addr || code) {
+                    zoneItems[zone.id].push({ addr, code, origRow: idx + 1 });
+                }
+            });
+        });
+
+        const total = ZONES.reduce((s, z) => s + zoneItems[z.id].length, 0);
+        const apiLabel = getApiUrl() ? 'API configurada' : 'falta configurar API';
+        setStatus('✅', `${total} adreces carregades — arrossega les targetes per reordenar (${apiLabel})`, 'success');
+
+        renderItems();
+        initSortable();
+
+        document.getElementById('exportBtn').disabled = false;
+        document.getElementById('copyBtn').disabled   = false;
+
+    } catch (err) {
+        console.error(err);
+        setStatus('❌', `Error carregant dades: ${err.message}`, 'error');
+        ZONES.forEach(zone => {
+            document.getElementById(`list-${zone.id}`).innerHTML =
+                '<div class="empty-placeholder">Error de càrrega</div>';
+        });
+    }
+}
+
+// ─── EXPORT ────────────────────────────────────────────────────────────────
+function buildCSV() {
+    syncStateFromDOM();
+
+    const maxLen = Math.max(...ZONES.map(z => zoneItems[z.id].length));
+    const lines  = [];
+
+    // Header
+    const header = ZONES.flatMap(z => [`Adreça ${z.name}`, `CB ${z.name}`]);
+    lines.push(header.map(h => `"${h}"`).join(','));
+
+    for (let i = 0; i < maxLen; i++) {
+        const cols = ZONES.flatMap(zone => {
+            const item = (zoneItems[zone.id] || [])[i];
+            if (item) {
+                const a = (item.addr || '').replace(/"/g, '""');
+                const c = (item.code || '').replace(/"/g, '""');
+                return [`"${a}"`, `"${c}"`];
+            }
+            return ['""', '""'];
+        });
+        lines.push(cols.join(','));
+    }
+
+    return lines.join('\n');
+}
+
+function openExportModal() {
+    const csv = buildCSV();
+    document.getElementById('csvOutput').value = csv;
+    document.getElementById('exportModal').style.display = 'flex';
+}
+
+function copyToClipboard() {
+    const csv = buildCSV();
+    navigator.clipboard.writeText(csv).then(() => {
+        const btn = document.getElementById('copyBtn');
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copiat!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(() => {
+        alert('No s\'ha pogut copiar. Utilitza el botó Exportar CSV.');
+    });
+}
+
+function downloadCSV() {
+    const csv = document.getElementById('csvOutput').value;
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `BikeLogic_rutes_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function openApiModal() {
+    document.getElementById('apiUrlInput').value = localStorage.getItem(API_URL_STORAGE_KEY)?.trim() || DEFAULT_API_URL;
+    document.getElementById('apiModal').style.display = 'flex';
+}
+
+function closeApiModal() {
+    document.getElementById('apiModal').style.display = 'none';
+}
+
+function saveApiUrl() {
+    const value = document.getElementById('apiUrlInput').value.trim();
+    if (!value) {
+        alert('Enganxa una URL vàlida del desplegament web de Google Apps Script.');
+        return;
+    }
+
+    localStorage.setItem(API_URL_STORAGE_KEY, value);
+    refreshApiStatusHint();
+    closeApiModal();
+    setStatus('✅', 'API desada. Ja pots reordenar i guardar directament al Drive.', 'success');
+}
+
+function clearApiUrl() {
+    localStorage.removeItem(API_URL_STORAGE_KEY);
+    document.getElementById('apiUrlInput').value = DEFAULT_API_URL;
+    refreshApiStatusHint();
+    setStatus('✅', 'S\'ha restaurat la URL API per defecte.', 'success');
+}
+
+// ─── EVENTS ────────────────────────────────────────────────────────────────
+document.getElementById('apiConfigBtn').addEventListener('click', openApiModal);
+document.getElementById('reloadBtn').addEventListener('click', loadData);
+document.getElementById('exportBtn').addEventListener('click', openExportModal);
+document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+document.getElementById('saveApiBtn').addEventListener('click', saveApiUrl);
+document.getElementById('closeApiBtn').addEventListener('click', closeApiModal);
+document.getElementById('clearApiBtn').addEventListener('click', clearApiUrl);
+document.getElementById('closeExportBtn').addEventListener('click', () => {
+    document.getElementById('exportModal').style.display = 'none';
+});
+document.getElementById('downloadCsvBtn').addEventListener('click', downloadCSV);
+
+// Close modal on overlay click
+document.getElementById('exportModal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+});
+
+document.getElementById('apiModal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+});
+
+// ─── BARCODE MODAL ─────────────────────────────────────────────────────────
+function showBarcodeModal(code, address) {
+    const modal = document.getElementById('barcodeModal');
+    const body = document.getElementById('barcodeModalBody');
+    const title = document.getElementById('barcodeModalTitle');
+    
+    body.innerHTML = '';
+    title.textContent = address ? `${address}\n${code}` : `Codi: ${code}`;
+    
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    JsBarcode(svg, code, {
+        format: 'CODE128',
+        displayValue: true,
+        margin: 10,
+        width: 2,
+        height: 100,
+        background: '#ffffff',
+        lineColor: '#000000',
+    });
+    body.appendChild(svg);
+    
+    modal.classList.add('visible');
+}
+
+document.getElementById('closeBarcodeBtn').addEventListener('click', function() {
+    document.getElementById('barcodeModal').classList.remove('visible');
+});
+
+document.getElementById('barcodeModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.remove('visible');
+    }
+});
+
+// ─── DELETE CONFIRMATION MODAL ─────────────────────────────────────────────
+let cardToDelete = null;
+
+function showDeleteConfirmModal(address, card) {
+    cardToDelete = card;
+    document.getElementById('deleteConfirmMessage').textContent = `Estàs segur que vols borrar "${address}"?`;
+    document.getElementById('deleteConfirmModal').style.display = 'flex';
+}
+
+function closeDeleteConfirmModal() {
+    document.getElementById('deleteConfirmModal').style.display = 'none';
+    cardToDelete = null;
+}
+
+function confirmDelete() {
+    if (cardToDelete) {
+        cardToDelete.remove();
+        syncStateFromDOM();
+        scheduleSave();
+        closeDeleteConfirmModal();
+    }
+}
+
+document.getElementById('deleteCancelBtn').addEventListener('click', closeDeleteConfirmModal);
+document.getElementById('deleteConfirmBtn').addEventListener('click', confirmDelete);
+
+// Close modal on overlay click
+document.getElementById('deleteConfirmModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteConfirmModal();
+});
+
+// ─── INIT ──────────────────────────────────────────────────────────────────
+refreshApiStatusHint();
+loadData();
+</script>
+</body>
+</html>
